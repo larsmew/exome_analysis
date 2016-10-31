@@ -1,5 +1,3 @@
-"Test - symlink"
-
 import time
 import os
 #import glob

@@ -1,5 +1,3 @@
-"Editing hard-link file"
-
 import time
 import os
 #import glob

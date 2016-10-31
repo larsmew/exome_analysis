@@ -1,3 +1,5 @@
+"Test 2 - hardlink"
+
 import time
 import os
 #import glob

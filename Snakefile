@@ -1,49 +1,107 @@
 import time
+import os
+#import glob
 
-ref = "../bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"
+SAMPLES, = glob_wildcards("{sample}_R1.fastq.gz")
+FAMNAME = os.getcwd().rsplit("/",1)[1]
+totim = time.time()
+
+# Relative paths
+# ref = "../../../bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"
+# bed = "../../../NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed"
+# interval = "../../../NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval"
+# dbsnp = "../../../knownSNPs/dbsnp_138.b37.vcf"
+# mills_1000G = "../../../knownSNPs/Mills_and_1000G_gold_standard.indels.b37.vcf"
+
+# Explicit paths
+ref = "/work/sduvarcall/bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"
+bed = "/work/sduvarcall/NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed"
+interval = "/work/sduvarcall/NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval"
+dbsnp = "/work/sduvarcall/knownSNPs/dbsnp_138.b37.vcf"
+mills_1000G = "/work/sduvarcall/knownSNPs/Mills_and_1000G_gold_standard.indels.b37.vcf"
+
+
 timeFormat = "%Y_%m_%d:%X" # year, month, day, time H:M:S
+log_file = "log_file.txt"
+mem = "-Xmx32g"
 
 '''
 Create log file, containing:
 	- Programs used and their version info
 	- Start and stop time of complete workflow
-	- Start and stop time of complete workflow
 	- sample(s)
 '''
-rule log_file:
-	output:
-		log="log_file.txt"
-	shell:
-		"touch {input} \ "
-		"&& echo $(date +'%Y-%m-%d:%H:%M:%S')"
+onstart:
+	shell("echo 'Started execution of pipeline:' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+
+onsuccess:
+	fiTime = 'Total time:', str(time.time()-totim)
+	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("echo {fiTime} >> {log_file}")
+	shell("cat {log_file} >> log_file_success.txt")
+	#shell("mv {log_file} log_file_success.txt")
+
+onerror:
+	fiTime = 'Total time:', str(time.time()-totim)
+	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("echo {fiTime} >> {log_file}")
+	shell("echo 'ERROR OCCURED, PLEASE REFER TO SLURM LOGFILE FOR DETAILS' >> {log_file}")
+	shell("cp {log_file} log_file_error.txt")
+
+
+'''
+Rule all
+'''
+rule all:
+	input:
+		#expand("../vcf_files/{sample}_raw_variants.g.vcf", sample=SAMPLES)
+		expand("{sample}_coverage_codingexons", sample=SAMPLES),
+		expand("{sample}_HS_Metrics.txt", sample=SAMPLES),
+		expand("{fam_name}_variants.vcf", fam_name=FAMNAME)
 		
+
 
 '''
 Map reads to reference genome with bwa (adding read groups with -R, random placeholder text)
 Uses samtools to sort mappings and convert to bam file
 '''
-rule bwa_map:
+rule map_and_sort:
 	input:
 		ref={ref},
-		faq=expand("{{sample}}_{pair}_001.fastq.gz", pair=["R1","R2"])
+		faq=expand("{{sample}}_{pair}.fastq.gz", pair=["R1","R2"])
 	output:
-		"{sample}_addedGroup.bam"
-	threads: 48
+		temp("{sample}_aligned_sorted.bam")
+	params:
+		#rg = "@RG\tID:{sample}\tLB:NimbleGen\tPL:Illumina\tSM:{sample}\tPU:{sample}"
+		rg = "@RG\tID:bwa\tLB:NimbleGen\tPL:Illumina\tSM:{sample}\tPU:{sample}"
+	benchmark:
+		"{sample}.bwa.benchmark.txt"
+	threads: 24
 	shell:
-		"bwa mem \ -t {threads} -R '@RG\tID:bwa\tLB:lib1\tPL:illumina\tSM:20\tPU:unit1' \ "
-		"{input} | samtools sort - > {output}"
+		"bwa mem -t {threads} -R '{params.rg}' {input} | samtools sort - > {output}"
+		
+		# Write to logfile
+		" && echo 'Aligning with bwa mem and output sorted bam file with samtools' >> {log_file}"
+		" && echo 'bam mem version: 0.7.15-r1140' >> {log_file}"
+		" && echo 'samtools version: 1.3.1' >> {log_file}"
+		" && echo 'Reference genome:' {ref} >> {log_file}"
 
 
 '''
-Remove duplicate mappings - for faster processing later
+Remove duplicate reads - for faster processing later
 '''
 rule remove_duplicates:
 	input:
-		"{sample}_addedGroup.bam"
+		"{sample}_aligned_sorted.bam"
 	output:
-		"{sample}_reDup_addedGroup.bam"
+		temp("{sample}_aligned_sorted_reDup.bam")
 	shell:
-		"picard -Xmx4g MarkDuplicates I={input} O={output} REMOVE_DUPLICATES=true METRICS_FILE=duplicates.txt"
+		"picard {mem} MarkDuplicates I={input} O={output} "
+		"REMOVE_DUPLICATES=true METRICS_FILE=duplicate_metrics.txt"
+		
+		# Write to logfile
+		"&& echo 'Removing PCR Duplicates' >> {log_file}"
+		"&& echo 'Picard MarkDuplicates version:' $(picard MarkDuplicates --version) >> {log_file}"
 
 
 '''
@@ -51,35 +109,13 @@ Creates index bai file with Samtools
 '''
 rule index_bam:
 	input:
-		"{sample}_reDup_addedGroup.bam"
+		"{sample}_aligned_sorted_reDup.bam"
 	output:
-		"{sample}_reDup_addedGroup.bam.bai"
+		temp("{sample}_aligned_sorted_reDup.bam.bai")
 	shell:
 		"samtools index {input}"
-
-
-'''
-Downloads list of known SNPs if not already in the directory
-'''
-rule get_dbsnp_vcf_file:
-	params:
-		link="ftp://gsapubftp-anonymous@ftp.broadinstitute.org/bundle/2.8/b37/"
-	output:
-		"dbsnp_138.b37.vcf"
-	shell:
-		"wget {params}{output}.gz | gunzip {output}.gz"
-
-
-'''
-Downloads list of golden standard indels if not already in the directory
-'''
-rule get_gold_indels_vcf_file:
-	params:
-		link="ftp://gsapubftp-anonymous@ftp.broadinstitute.org/bundle/2.8/b37/"
-	output:
-		"Mills_and_1000G_gold_standard.indels.b37.vcf"
-	shell:
-		"wget {params}{output}.gz | gunzip {output}.gz"
+		
+		"&& echo 'Created index for reDup bam file' >> {log_file}"
 
 
 '''
@@ -87,25 +123,31 @@ Obtain recalibration information
 '''
 rule patterns_covariation_pass:
 	input:
-		bam="{sample}_reDup_addedGroup.bam",
-		gold_indels="Mills_and_1000G_gold_standard.indels.b37.vcf",
-		dbsnp="dbsnp_138.b37.vcf"
+		bam="{sample}_aligned_sorted_reDup.bam",
+		bai="{sample}_aligned_sorted_reDup.bam.bai",
+		mills_1000G={mills_1000G},
+		dbsnp={dbsnp}
 	output:
 		"{sample}_recal_data.table"
 	shell:
-		"GenomeAnalysisTK \ "
+		"GenomeAnalysisTK -Xmx32g \ "
 		"-T BaseRecalibrator \ "
 		"-R {ref} \ "
 		"-I {input.bam} \ "
-		"-L 20 \ "
 		"-knownSites {input.dbsnp} \ "
-		"-knownSites {input.gold_indels} \ "
+		"-knownSites {input.mills_1000G} \ "
 		"-cov ReadGroupCovariate \ "
 		"-cov QualityScoreCovariate \ "
 		# "-cov CycleCovariate \ "
 		# "-cov ContextCovariate \ "
 		# "-rf BadCigar \ "
+		"-nct 8 \ "
 		"-o {output}"
+		
+		# Write to logfile
+		"&& echo 'Obtained covariation patterns for recalibration' >> {log_file}"
+		"&& echo 'dbsnp version: dbsnp_138.b37.vcf' >> {log_file}"
+		"&& echo '1000G version: Mills_and_1000G_gold_standard.indels.b37.vcf' >> {log_file}"
 
 
 '''
@@ -113,19 +155,66 @@ Apply Recalibration
 '''
 rule apply_recalibration:
 	input:
-		bam="{sample}_reDup_addedGroup.bam",
+		bam="{sample}_aligned_sorted_reDup.bam",
+		bai="{sample}_aligned_sorted_reDup.bam.bai",
 		table="{sample}_recal_data.table"
 	output:
-		"{sample}_recal_reads.bam"
+		"{sample}_recal.bam"
 	shell:
-		"GenomeAnalysisTK \ "
+		"GenomeAnalysisTK -Xmx32g \ "
 		"-T PrintReads \ "
 		"-R {ref} \ "
 		"-I {input.bam} \ "
-		"-L 20 \ "
 		"-BQSR {input.table} \ "
 		# "-rf BadCigar \ "
+		"-nct 8 \ "
 		"-o {output}"
+		
+		# Write to logfile
+		"&& echo 'Recalibrate bases' >> {log_file}"
+		"&& echo 'GATK version:' $(GenomeAnalysisTK --version) >> {log_file}"
+
+
+'''
+Depth of coverage calculation
+'''
+rule depth_of_coverage:
+	input:
+		bam="{sample}_recal.bam"
+	output:
+		"{sample}_coverage_codingexons"
+	shell:
+		"GenomeAnalysisTK -Xmx32g \ "
+		"-T DepthOfCoverage \ "
+		"-L {bed} \ "
+		"-o {output} \ "
+		#"-I {sample}.marked.realigned.recal.bam \ "
+		"-I {input} \ "
+		"-R {ref} \ "
+		#"-geneList //data/martin/analysis/refGene_sorted_1-22xy_REDUCED.b37.txt \ "
+		"--omitDepthOutputAtEachBase \ "
+		"--summaryCoverageThreshold 30 \ "
+		"--minBaseQuality 30"
+		
+		# Write to logfile
+		"&& echo 'Calculate depth of coverage' >> {log_file}"
+		
+		"&& touch {output}" # To remove false error logs
+
+'''
+Collect Hybrid Selection metrics
+'''
+rule collectHsMetrics:
+	input:
+		bam="{sample}_recal.bam"
+	output:
+		"{sample}_HS_Metrics.txt"
+	shell:
+		"picard CollectHsMetrics -Xmx10g BAIT_INTERVALS={interval} "
+		"TARGET_INTERVALS={interval} INPUT={input} OUTPUT={output} REFERENCE_SEQUENCE={ref}"
+		
+		# Write to logfile
+		"&& echo 'Collect Hybrid Selection metrics' >> {log_file}"
 
 
 '''
@@ -133,60 +222,72 @@ Rule to create directory for VCF files
 '''
 rule create_vcf_dir:
 	output:
-		"vcf_files"
+		"gvcf_files"
 	shell:
-		"mkdir {output}"
+		"mkdir {output} && echo 'Created gvcf dir'" # For output file info
 
 '''
 HaplotypeCaller
 '''
 rule haplotypeCaller:
 	input:
-		bam="{sample}_recal_reads.bam",
-		# dbsnp="dbsnp_138.b37.vcf",
-		vcfdir="vcf_files"
+		bam="{sample}_recal.bam",
+		dbsnp={dbsnp}
+		#vcfdir="../vcf_files"
 	output:
-		gvcf="{input.vcfdir}/{sample}_raw_variants.g.vcf",
-		#gvcf_list="{sample}_gvcf_files.txt"
+		gvcf="gvcf_files/{sample}_raw_variants.g.vcf",
+		#gvcfs_list="../{fam_name}_gvcf_files.list"
+	threads: 24
 	shell:
-		"GenomeAnalysisTK \ "
+		"GenomeAnalysisTK -Xmx32g \ "
 		"-T HaplotypeCaller \ "
 		"-R {ref} \ "
 		"-I {input.bam} \ "
-		"-L 20 \ "
-		# "--dbsnp {input.dbsnp} \ "
+		"--dbsnp {input.dbsnp} \ "
 		"--genotyping_mode DISCOVERY \ "
 		"-stand_emit_conf 10 \ "
 		"-stand_call_conf 30 \ "
 		"--emitRefConfidence GVCF \ "
 		"--variant_index_type LINEAR \ "
 		"--variant_index_parameter 128000 \ "
-		"-o {output} \ "
-		# "| bgzip -c > {output} \ "
+		"-nct {threads} \ "
+		"-o {output.gvcf} \ "
+		# "| bgzip -c > {output}"
 		# "&& tabix -p vcf {output}"
-		"&& echo '{output}' >> gvcf_files.txt"
+		#"&& echo $(basename {output.gvcf}) >> ../gvcf_files.list"
+		
+		# Write to logfile
+		"&& echo 'HaplotypeCaller' >> {log_file}"
 
 
 '''
 GenotypeGVCFs
 '''
+# gvcfs=glob.glob("*.g.vcf")
+# print(gvcfs)
 rule genotypeGVCFs:
 	input:
-		gvcfs="gvcf_files.txt",
-		dbsnp="dbsnp_138.b37.vcf",
-		vcfdir="vcf_files"
+		#gvcfs_list="../{fam_name}_gvcf_files.list",
+		#gvcfs=glob.glob("*.g.vcf"),
+		gvcfs=expand("gvcf_files/{sample}_raw_variants.g.vcf", sample=SAMPLES),
+		dbsnp={dbsnp}
 	output:
-		"{sample}_variants.vcf"
+		"{fam_name}_variants.vcf"
+	params:
+		gvcfs=expand("-V gvcf_files/{sample}_raw_variants.g.vcf", sample=SAMPLES),
 	shell:
-		"GenomeAnalysisTK \ "
+		"GenomeAnalysisTK -Xmx32g \ "
 		"-T GenotypeGVCFs \ "
 		"-R {ref} \ "
-		"-V {input.gvcfs} \ "
+		#"-V G37-01215-06_nimblegen-exome-utr_C1NEGACXX_raw_variants.g.vcf \ "
+		#"-V G37-A028_nimblegen-exome-utr_C1NEGACXX_raw_variants.g.vcf \ "
+		#"-V G37-A043_nimblegen-exome-utr_C1NEGACXX_raw_variants.g.vcf \ "
+		#"-V {input.gvcfs_list} \ "
+		"{params.gvcfs} \ "
 		"--dbsnp {input.dbsnp} \ "
-		"-L 20 \ "
 		"-stand_emit_conf 10 \ "
 		"-stand_call_conf 30 \ "
-		"-o {input.vcfdir}/{output}"
+		"-o {output}"
 
 
 '''
@@ -244,4 +345,41 @@ rule generate_recalibration_plots:
 		"GenomeAnalysisTK -T AnalyzeCovariates -R {ref} -L 20 -before {input.before} -after {input.after} -plots {output}"
 -----
 
+### Consider combining into one pre-process step...
 '''
+# Downloads list of known SNPs if not already in the directory
+'''
+# rule get_dbsnp_vcf_file:
+# 	params:
+# 		link="ftp://gsapubftp-anonymous@ftp.broadinstitute.org/bundle/2.8/b37/"
+# 	output:
+# 		"dbsnp_138.b37.vcf"
+# 	shell:
+# 		"wget {params}{output}.gz | gunzip {output}.gz"
+
+
+'''
+# Downloads list of golden standard indels if not already in the directory
+'''
+# rule get_gold_indels_vcf_file:
+# 	params:
+# 		link="ftp://gsapubftp-anonymous@ftp.broadinstitute.org/bundle/2.8/b37/"
+# 	output:
+# 		"Mills_and_1000G_gold_standard.indels.b37.vcf"
+# 	shell:
+# 		"wget {params}{output}.gz | gunzip {output}.gz"
+
+
+'''
+
+		
+'''
+Random test function for time testing
+'''
+rule test:
+	output:
+		"nothing.txt"
+	shell:
+		"sleep 3600"
+		"&& echo 'I did nothing but sleep for 5 sec' > nothing.txt"
+		# "&& return 1" # To simulate error

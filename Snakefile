@@ -1,4 +1,4 @@
-"Test 2 - hardlink"
+"Test - symlink"
 
 import time
 import os

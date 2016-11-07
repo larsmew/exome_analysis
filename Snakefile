@@ -270,7 +270,7 @@ rule genotypeGVCFs:
 	input:
 		#gvcfs_list="../{fam_name}_gvcf_files.list",
 		#gvcfs=glob.glob("*.g.vcf"),
-		gvcfs=expand("gvcf_files/{sample}_raw_variants.g.vcf", sample=SAMPLES),
+		gvcfs=expand("gvcf_files/{sample}_raw_variants.g.vcf.gz", sample=SAMPLES),
 		dbsnp={dbsnp}
 	output:
 		"{fam_name}_variants.vcf"

@@ -240,7 +240,7 @@ rule haplotypeCaller:
 		#gvcfs_list="../{fam_name}_gvcf_files.list"
 	threads: 24
 	shell:
-		"GenomeAnalysisTK -Xmx32g \ "
+		"GenomeAnalysisTK -Xmx12g \ "
 		"-T HaplotypeCaller \ "
 		"-R {ref} \ "
 		"-I {input.bam} \ "
@@ -252,9 +252,9 @@ rule haplotypeCaller:
 		"--variant_index_type LINEAR \ "
 		"--variant_index_parameter 128000 \ "
 		"-nct {threads} \ "
-		"-o {output.gvcf} \ "
-		# " | bgzip  "
-		# "&& tabix -p vcf {output.gvcf}"
+		# "-o {output.gvcf} \ "
+		" | bgzip -c > {output.gvcf} "
+		"&& tabix -p vcf {output.gvcf}"
 		#"&& echo $(basename {output.gvcf}) >> ../gvcf_files.list"
 		
 		# Write to logfile

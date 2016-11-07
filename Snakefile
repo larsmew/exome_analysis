@@ -235,7 +235,8 @@ rule haplotypeCaller:
 		dbsnp={dbsnp}
 		#vcfdir="../vcf_files"
 	output:
-		gvcf="gvcf_files/{sample}_raw_variants.g.vcf",
+		gvcf="gvcf_files/{sample}_raw_variants.g.vcf.gz",
+		#gvcf_index="gvcf_files/{sample}_raw_variants.g.vcf.gz.tbi"
 		#gvcfs_list="../{fam_name}_gvcf_files.list"
 	threads: 24
 	shell:
@@ -251,9 +252,9 @@ rule haplotypeCaller:
 		"--variant_index_type LINEAR \ "
 		"--variant_index_parameter 128000 \ "
 		"-nct {threads} \ "
-		"-o {output.gvcf} \ "
-		# "| bgzip -c > {output}"
-		# "&& tabix -p vcf {output}"
+		# "-o {output.gvcf} \ "
+		" | bgzip - "
+		"&& tabix -p vcf gvcf_files/{output.gvcf}"
 		#"&& echo $(basename {output.gvcf}) >> ../gvcf_files.list"
 		
 		# Write to logfile

@@ -252,9 +252,9 @@ rule haplotypeCaller:
 		"--variant_index_type LINEAR \ "
 		"--variant_index_parameter 128000 \ "
 		"-nct {threads} \ "
-		# "-o {output.gvcf} \ "
-		" | bgzip - "
-		"&& tabix -p vcf gvcf_files/{output.gvcf}"
+		"-o {output.gvcf} \ "
+		# " | bgzip  "
+		# "&& tabix -p vcf {output.gvcf}"
 		#"&& echo $(basename {output.gvcf}) >> ../gvcf_files.list"
 		
 		# Write to logfile

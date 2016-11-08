@@ -275,7 +275,7 @@ rule genotypeGVCFs:
 	output:
 		"{fam_name}_variants.vcf"
 	params:
-		gvcfs=expand("-V gvcf_files/{sample}_raw_variants.g.vcf", sample=SAMPLES),
+		gvcfs=expand("-V gvcf_files/{sample}_raw_variants.g.vcf.gz", sample=SAMPLES),
 	shell:
 		"GenomeAnalysisTK -Xmx32g \ "
 		"-T GenotypeGVCFs \ "

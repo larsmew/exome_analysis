@@ -6,11 +6,11 @@ FAMNAME = os.getcwd().rsplit("/",1)[1]
 totim = time.time()
 
 # Relative paths
-# ref = "../../../bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"
-# bed = "../../../NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed"
-# interval = "../../../NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval"
-# dbsnp = "../../../knownSNPs/dbsnp_138.b37.vcf"
-# mills_1000G = "../../../knownSNPs/Mills_and_1000G_gold_standard.indels.b37.vcf"
+# ref = "../../bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"
+# bed = "../../NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed"
+# interval = "../../NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval"
+# dbsnp = "../../knownSNPs/dbsnp_138.b37.vcf"
+# mills_1000G = "../../knownSNPs/Mills_and_1000G_gold_standard.indels.b37.vcf"
 
 # Explicit paths
 ref = "/work/sduvarcall/bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"

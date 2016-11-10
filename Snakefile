@@ -1,6 +1,5 @@
 import time
 import os
-#import glob
 
 SAMPLES, = glob_wildcards("{sample}_R1.fastq.gz")
 FAMNAME = os.getcwd().rsplit("/",1)[1]
@@ -54,11 +53,10 @@ Rule all
 '''
 rule all:
 	input:
-		#expand("../vcf_files/{sample}_raw_variants.g.vcf", sample=SAMPLES)
 		expand("{sample}_coverage_codingexons", sample=SAMPLES),
 		expand("{sample}_HS_Metrics.txt", sample=SAMPLES),
 		expand("{fam_name}_variants.vcf", fam_name=FAMNAME)
-		
+
 
 
 '''
@@ -79,7 +77,7 @@ rule map_and_sort:
 	threads: 24
 	shell:
 		"bwa mem -t {threads} -R '{params.rg}' {input} | samtools sort - > {output}"
-		
+
 		# Write to logfile
 		" && echo 'Aligning with bwa mem and output sorted bam file with samtools' >> {log_file}"
 		" && echo 'bam mem version: 0.7.15-r1140' >> {log_file}"
@@ -98,7 +96,7 @@ rule remove_duplicates:
 	shell:
 		"picard {mem} MarkDuplicates I={input} O={output} "
 		"REMOVE_DUPLICATES=true METRICS_FILE=duplicate_metrics.txt"
-		
+
 		# Write to logfile
 		"&& echo 'Removing PCR Duplicates' >> {log_file}"
 		"&& echo 'Picard MarkDuplicates version:' $(picard MarkDuplicates --version) >> {log_file}"
@@ -114,7 +112,7 @@ rule index_bam:
 		temp("{sample}_aligned_sorted_reDup.bam.bai")
 	shell:
 		"samtools index {input}"
-		
+
 		"&& echo 'Created index for reDup bam file' >> {log_file}"
 
 
@@ -143,7 +141,7 @@ rule patterns_covariation_pass:
 		# "-rf BadCigar \ "
 		"-nct 8 \ "
 		"-o {output}"
-		
+
 		# Write to logfile
 		"&& echo 'Obtained covariation patterns for recalibration' >> {log_file}"
 		"&& echo 'dbsnp version: dbsnp_138.b37.vcf' >> {log_file}"
@@ -169,7 +167,7 @@ rule apply_recalibration:
 		# "-rf BadCigar \ "
 		"-nct 8 \ "
 		"-o {output}"
-		
+
 		# Write to logfile
 		"&& echo 'Recalibrate bases' >> {log_file}"
 		"&& echo 'GATK version:' $(GenomeAnalysisTK --version) >> {log_file}"
@@ -188,17 +186,16 @@ rule depth_of_coverage:
 		"-T DepthOfCoverage \ "
 		"-L {bed} \ "
 		"-o {output} \ "
-		#"-I {sample}.marked.realigned.recal.bam \ "
 		"-I {input} \ "
 		"-R {ref} \ "
 		#"-geneList //data/martin/analysis/refGene_sorted_1-22xy_REDUCED.b37.txt \ "
 		"--omitDepthOutputAtEachBase \ "
 		"--summaryCoverageThreshold 30 \ "
 		"--minBaseQuality 30"
-		
+
 		# Write to logfile
 		"&& echo 'Calculate depth of coverage' >> {log_file}"
-		
+
 		"&& touch {output}" # To remove false error logs
 
 '''
@@ -212,13 +209,13 @@ rule collectHsMetrics:
 	shell:
 		"picard CollectHsMetrics -Xmx10g BAIT_INTERVALS={interval} "
 		"TARGET_INTERVALS={interval} INPUT={input} OUTPUT={output} REFERENCE_SEQUENCE={ref}"
-		
+
 		# Write to logfile
 		"&& echo 'Collect Hybrid Selection metrics' >> {log_file}"
 
 
 '''
-Rule to create directory for VCF files		
+Rule to create directory for VCF files
 '''
 rule create_vcf_dir:
 	output:
@@ -233,11 +230,9 @@ rule haplotypeCaller:
 	input:
 		bam="{sample}_recal.bam",
 		dbsnp={dbsnp}
-		#vcfdir="../vcf_files"
 	output:
 		gvcf="gvcf_files/{sample}_raw_variants.g.vcf.gz",
 		#gvcf_index="gvcf_files/{sample}_raw_variants.g.vcf.gz.tbi"
-		#gvcfs_list="../{fam_name}_gvcf_files.list"
 	threads: 24
 	shell:
 		"GenomeAnalysisTK -Xmx12g \ "
@@ -255,8 +250,7 @@ rule haplotypeCaller:
 		# "-o {output.gvcf} \ "
 		" | bgzip -c > {output.gvcf} "
 		"&& tabix -p vcf {output.gvcf}"
-		#"&& echo $(basename {output.gvcf}) >> ../gvcf_files.list"
-		
+
 		# Write to logfile
 		"&& echo 'HaplotypeCaller' >> {log_file}"
 
@@ -264,16 +258,12 @@ rule haplotypeCaller:
 '''
 GenotypeGVCFs
 '''
-# gvcfs=glob.glob("*.g.vcf")
-# print(gvcfs)
 rule genotypeGVCFs:
 	input:
-		#gvcfs_list="../{fam_name}_gvcf_files.list",
-		#gvcfs=glob.glob("*.g.vcf"),
 		gvcfs=expand("gvcf_files/{sample}_raw_variants.g.vcf.gz", sample=SAMPLES),
 		dbsnp={dbsnp}
 	output:
-		"{fam_name}_variants.vcf"
+		"{fam_name}_variants.vcf.gz"
 	params:
 		gvcfs=expand("-V gvcf_files/{sample}_raw_variants.g.vcf.gz", sample=SAMPLES),
 	shell:
@@ -283,12 +273,13 @@ rule genotypeGVCFs:
 		#"-V G37-01215-06_nimblegen-exome-utr_C1NEGACXX_raw_variants.g.vcf \ "
 		#"-V G37-A028_nimblegen-exome-utr_C1NEGACXX_raw_variants.g.vcf \ "
 		#"-V G37-A043_nimblegen-exome-utr_C1NEGACXX_raw_variants.g.vcf \ "
-		#"-V {input.gvcfs_list} \ "
 		"{params.gvcfs} \ "
 		"--dbsnp {input.dbsnp} \ "
 		"-stand_emit_conf 10 \ "
 		"-stand_call_conf 30 \ "
-		"-o {output}"
+		# "-o {output}"
+		" | bgzip -c > {output} "
+		"&& tabix -p vcf {output}"
 
 
 '''
@@ -310,8 +301,8 @@ rule add_read_groups:
 		"{sample}_reDup_sorted_addedGroups.bam"
 	shell:
 		"picard -Xmx4g AddOrReplaceReadGroups I={input} O={output} RGID=4 RGLB=lib1 RGPL=illumina RGPU=unit1 RGSM=20"
-		
-		
+
+
 rule realignerTargetCreator:
 	input:
 		ref={ref},
@@ -324,7 +315,7 @@ rule realignerTargetCreator:
 
 -----
 Test af recalibration
-		
+
 rule patterns_covariation_pass2:
 	input:
 		bam="{sample}_reDup_addedGroup.bam",
@@ -373,7 +364,7 @@ rule generate_recalibration_plots:
 
 '''
 
-		
+
 '''
 Random test function for time testing
 '''

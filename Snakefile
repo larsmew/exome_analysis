@@ -4,6 +4,9 @@ import os
 SAMPLES, = glob_wildcards("{sample}_R1.fastq.gz")
 FAMNAME = os.getcwd().rsplit("/",1)[1]
 totim = time.time()
+timeFormat = "%Y_%m_%d:%X" # year, month, day, time H:M:S
+log_file = "log_file.txt"
+mem = "-Xmx32g"
 
 # Relative paths
 # ref = "../../bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"
@@ -19,11 +22,6 @@ interval = "/work/sduvarcall/NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTa
 dbsnp = "/work/sduvarcall/knownSNPs/dbsnp_138.b37.vcf"
 mills_1000G = "/work/sduvarcall/knownSNPs/Mills_and_1000G_gold_standard.indels.b37.vcf"
 
-
-timeFormat = "%Y_%m_%d:%X" # year, month, day, time H:M:S
-log_file = "log_file.txt"
-mem = "-Xmx32g"
-
 '''
 Create log file, containing:
 	- Programs used and their version info
@@ -34,14 +32,14 @@ onstart:
 	shell("echo 'Started execution of pipeline:' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
 
 onsuccess:
-	fiTime = 'Total time:', str(time.time()-totim)
+	fiTime = 'Total time:', str((time.time()-totim) / 60), 'minutes'
 	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
 	shell("echo {fiTime} >> {log_file}")
 	shell("cat {log_file} >> log_file_success.txt")
 	#shell("mv {log_file} log_file_success.txt")
 
 onerror:
-	fiTime = 'Total time:', str(time.time()-totim)
+	fiTime = 'Total time:', str((time.time()-totim) / 60), 'minutes'
 	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
 	shell("echo {fiTime} >> {log_file}")
 	shell("echo 'ERROR OCCURED, PLEASE REFER TO SLURM LOGFILE FOR DETAILS' >> {log_file}")
@@ -56,8 +54,6 @@ rule all:
 		expand("{sample}_coverage_codingexons", sample=SAMPLES),
 		expand("{sample}_HS_Metrics.txt", sample=SAMPLES),
 		expand("{fam_name}_variants.vcf", fam_name=FAMNAME)
-
-
 
 '''
 Map reads to reference genome with bwa (adding read groups with -R, random placeholder text)
@@ -113,6 +109,7 @@ rule index_bam:
 	shell:
 		"samtools index {input}"
 
+		# Write to logfile
 		"&& echo 'Created index for reDup bam file' >> {log_file}"
 
 
@@ -128,7 +125,7 @@ rule patterns_covariation_pass:
 	output:
 		"{sample}_recal_data.table"
 	shell:
-		"GenomeAnalysisTK -Xmx32g \ "
+		"GenomeAnalysisTK {mem} \ "
 		"-T BaseRecalibrator \ "
 		"-R {ref} \ "
 		"-I {input.bam} \ "
@@ -159,7 +156,7 @@ rule apply_recalibration:
 	output:
 		"{sample}_recal.bam"
 	shell:
-		"GenomeAnalysisTK -Xmx32g \ "
+		"GenomeAnalysisTK {mem} \ "
 		"-T PrintReads \ "
 		"-R {ref} \ "
 		"-I {input.bam} \ "
@@ -182,7 +179,7 @@ rule depth_of_coverage:
 	output:
 		"{sample}_coverage_codingexons"
 	shell:
-		"GenomeAnalysisTK -Xmx32g \ "
+		"GenomeAnalysisTK {mem} \ "
 		"-T DepthOfCoverage \ "
 		"-L {bed} \ "
 		"-o {output} \ "
@@ -196,7 +193,8 @@ rule depth_of_coverage:
 		# Write to logfile
 		"&& echo 'Calculate depth of coverage' >> {log_file}"
 
-		"&& touch {output}" # To remove false error logs
+		# To remove false error logs
+		"&& touch {output}"
 
 '''
 Collect Hybrid Selection metrics
@@ -235,7 +233,7 @@ rule haplotypeCaller:
 		#gvcf_index="gvcf_files/{sample}_raw_variants.g.vcf.gz.tbi"
 	threads: 24
 	shell:
-		"GenomeAnalysisTK -Xmx12g \ "
+		"GenomeAnalysisTK {mem} \ "
 		"-T HaplotypeCaller \ "
 		"-R {ref} \ "
 		"-I {input.bam} \ "
@@ -267,7 +265,7 @@ rule genotypeGVCFs:
 	params:
 		gvcfs=expand("-V gvcf_files/{sample}_raw_variants.g.vcf.gz", sample=SAMPLES),
 	shell:
-		"GenomeAnalysisTK -Xmx32g \ "
+		"GenomeAnalysisTK {mem} \ "
 		"-T GenotypeGVCFs \ "
 		"-R {ref} \ "
 		#"-V G37-01215-06_nimblegen-exome-utr_C1NEGACXX_raw_variants.g.vcf \ "
@@ -281,6 +279,8 @@ rule genotypeGVCFs:
 		" | bgzip -c > {output} "
 		"&& tabix -p vcf {output}"
 
+		# Write to logfile
+		"&& echo 'Finished GenotypeGVCFs' >> {log_file}"
 
 '''
 
@@ -338,9 +338,9 @@ rule generate_recalibration_plots:
 -----
 
 ### Consider combining into one pre-process step...
-'''
+
 # Downloads list of known SNPs if not already in the directory
-'''
+
 # rule get_dbsnp_vcf_file:
 # 	params:
 # 		link="ftp://gsapubftp-anonymous@ftp.broadinstitute.org/bundle/2.8/b37/"
@@ -350,9 +350,8 @@ rule generate_recalibration_plots:
 # 		"wget {params}{output}.gz | gunzip {output}.gz"
 
 
-'''
 # Downloads list of golden standard indels if not already in the directory
-'''
+
 # rule get_gold_indels_vcf_file:
 # 	params:
 # 		link="ftp://gsapubftp-anonymous@ftp.broadinstitute.org/bundle/2.8/b37/"
@@ -361,7 +360,7 @@ rule generate_recalibration_plots:
 # 	shell:
 # 		"wget {params}{output}.gz | gunzip {output}.gz"
 
-
+-----
 '''
 
 

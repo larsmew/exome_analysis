@@ -1,3 +1,7 @@
+__author__ = "Lars Andersen <larsmew@gmail.com>"
+__date__ = "31/10/2016"
+__version__ = "1.0"
+
 import time
 import os
 #import glob

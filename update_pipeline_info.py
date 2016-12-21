@@ -125,13 +125,13 @@ new_conda_version = str(int(conda_version) + 1)
 new_conda_file = "conda_packages_v"+new_conda_version+".txt"
 
 def update_conda():
-	os.system("conda update")
+	os.system("conda update --all -y")
 	os.system("conda list --export > " + new_conda_file)
 
 def is_conda_updated(current_conda_file, new_conda_file):
 	print("compares:", current_conda_file, "and", new_conda_file)
 	if filecmp.cmp(current_conda_file, new_conda_file):
-		# os.system("rm -f " + new_conda_file)
+		os.system("rm -f " + new_conda_file)
 		print("No conda packages updated")
 		return False
 	else:
@@ -194,7 +194,7 @@ def commit_and_push_to_github(new_pipeline_version):
 	# 	os.system("git add Snakefile")
 	
 	if conda_updated:
-		os.system("git add "+ new_conda_file)
+		os.system("git add " + new_conda_file)
 	
 	os.system("git add pipeline_version.txt")
 	
@@ -236,9 +236,9 @@ def archive_and_update_pipeline():
 		archive_pipeline(new_pipeline_version)
 		if conda_updated:
 			archive_conda(new_conda_file)
-			# os.system("rm -f " + current_conda_file)
+			os.system("rm -f " + current_conda_file)
 		
-		#commit_and_push_to_github()
+		commit_and_push_to_github()
 	else:
 		print("Pipeline already up-to-date")
 

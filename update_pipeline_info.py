@@ -131,7 +131,7 @@ def update_conda():
 def is_conda_updated(current_conda_file, new_conda_file):
 	print("compares:", current_conda_file, "and", new_conda_file)
 	if filecmp.cmp(current_conda_file, new_conda_file):
-		# TODO: Should delete 'new_conda_file' here
+		# os.system("rm -f " + new_conda_file)
 		print("No conda packages updated")
 		return False
 	else:
@@ -179,7 +179,7 @@ def write_pipeline_version_content(new_pipeline_version):
 		f.write("interval: " + interval + "\n")
 		f.write("bed: " + bed + "\n\n")
 
-		f.write("Conda packages - version: " + new_conda_version + "\n")
+		f.write("Conda Packages - version: " + new_conda_version + "\n")
 		f.write("Updated: " + new_conda_date + "\n\n")
 
 		with open("conda_packages_v"+new_conda_version+".txt", "r") as cp:
@@ -236,6 +236,7 @@ def archive_and_update_pipeline():
 		archive_pipeline(new_pipeline_version)
 		if conda_updated:
 			archive_conda(new_conda_file)
+			# os.system("rm -f " + current_conda_file)
 		
 		#commit_and_push_to_github()
 	else:

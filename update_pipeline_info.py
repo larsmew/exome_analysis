@@ -189,18 +189,24 @@ def write_pipeline_version_content(new_pipeline_version):
 def commit_and_push_to_github(new_pipeline_version):
 	if archive_updated:
 		os.system("git add pipeline_archive")
+		print("Added achive to commit")
 	
 	# if snakefile_updated:
 	# 	os.system("git add Snakefile")
 	
 	if conda_updated:
 		os.system("git add " + new_conda_file)
+		os.system("git rm " + current_conda_file)
+		print("Added new conda_packages file and removed old one")
 	
 	os.system("git add pipeline_version.txt")
+	print("Added new pipeline_version file")
 	
 	os.system("git commit -m 'Updated pipeline version to "+new_pipeline_version+"'")
+	print("Commited pipeline version: " + new_pipeline_version)
 	
 	os.system("git push")
+	print("Pushed changes to remote git")
 
 def archive_pipeline(pipe_vers):
 	# Copy current pipeline file to archive, if not already there
@@ -237,15 +243,17 @@ def archive_and_update_pipeline():
 		if conda_updated:
 			archive_conda(new_conda_file)
 			os.system("rm -f " + current_conda_file)
+			print("Removed old conde file from top folder")
 		
 		commit_and_push_to_github(new_pipeline_version)
 	else:
 		print("Pipeline already up-to-date")
 
-#archive_and_update_pipeline()
+archive_and_update_pipeline()
 
 # Fixing fail commit
-new_pipeline_version = "1.0.1.2"
-archive_updated = True
-conda_updated = True
-commit_and_push_to_github(new_pipeline_version)
+# new_pipeline_version = "1.0.1.2"
+# new_conda_file = "conda_packages_v2.txt"
+# archive_updated = True
+# conda_updated = True
+# commit_and_push_to_github(new_pipeline_version)

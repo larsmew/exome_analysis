@@ -238,8 +238,14 @@ def archive_and_update_pipeline():
 			archive_conda(new_conda_file)
 			os.system("rm -f " + current_conda_file)
 		
-		commit_and_push_to_github()
+		commit_and_push_to_github(new_pipeline_version)
 	else:
 		print("Pipeline already up-to-date")
 
-archive_and_update_pipeline()
+#archive_and_update_pipeline()
+
+# Fixing fail commit
+new_pipeline_version = "1.0.1.2"
+archive_updated = True
+conda_updated = True
+commit_and_push_to_github(new_pipeline_version)

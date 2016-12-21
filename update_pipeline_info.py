@@ -1,8 +1,14 @@
 __author__ = "Lars Andersen <larsmew@gmail.com>"
-__date__ = "05/12/2016"
 __version__ = "1.0"
+__date__ = "05/12/2016"
 
-import sys, os, shutil, time
+import sys, os, shutil, time, filecmp
+
+# Files to be uploaded
+archive_updated = False
+snakefile_updated = False
+conda_updated = False
+
 
 ###############################################################################
 ####                                                                       ####
@@ -78,9 +84,10 @@ def is_snakefile_updated(snakefile_version, new_snakefile_version):
 snakefile = "Snakefile"
 
 # Check for snakefile updates
-if is_snakefile_updated(snakefile_version, get_snakefile_version(snakefile)):
-	new_snakefile_version = get_snakefile_version(snakefile)
+new_snakefile_version = get_snakefile_version(snakefile)
+if is_snakefile_updated(snakefile_version, new_snakefile_version):
 	new_snakefile_date = get_snakefile_date(snakefile)
+	snakefile_updated = True
 else:
 	new_snakefile_version = snakefile_version
 	new_snakefile_date = snakefile_date
@@ -112,12 +119,30 @@ file_date = "06/10/2016"
 '''
 TBD
 '''
-def is_conda_updated():
-	return False
+current_conda_file = "conda_packages_v"+conda_version+".txt"
 
-if is_conda_updated():
-	new_conda_version = str(int(conda_version) + 1)
+new_conda_version = str(int(conda_version) + 1)
+new_conda_file = "conda_packages_v"+new_conda_version+".txt"
+
+def update_conda():
+	os.system("conda update")
+	os.system("conda list --export > " + new_conda_file)
+
+def is_conda_updated(current_conda_file, new_conda_file):
+	print("compares:", current_conda_file, "and", new_conda_file)
+	if filecmp.cmp(current_conda_file, new_conda_file):
+		# TODO: Should delete 'new_conda_file' here
+		print("No conda packages updated")
+		return False
+	else:
+		print("conda packages updated")
+		return True
+
+update_conda()
+
+if is_conda_updated(current_conda_file, new_conda_file):
 	new_conda_date = time.strftime("%d/%m/%Y")
+	conda_updated = True
 else:
 	new_conda_version = conda_version
 	new_conda_date = conda_date
@@ -130,6 +155,7 @@ else:
 '''
 
 '''
+
 def is_pipeline_updated(pipeline_version, new_pipeline_version):
 	if pipeline_version == new_pipeline_version:
 		return False
@@ -137,7 +163,7 @@ def is_pipeline_updated(pipeline_version, new_pipeline_version):
 		return True
 
 def write_pipeline_version_content(new_pipeline_version):
-	with open("test_file.txt", "w") as f:
+	with open("pipeline_version.txt", "w") as f:
 		f.write("Pipeline version: " + new_pipeline_version + "\n")
 		f.write("Date: " + time.strftime("%d/%m/%Y") + "\n\n")
 
@@ -160,29 +186,59 @@ def write_pipeline_version_content(new_pipeline_version):
 			for line in cp:
 				f.write(line)
 
-def archive_and_update_pipeline():
+def commit_and_push_to_github(new_pipeline_version):
+	if archive_updated:
+		os.system("git add pipeline_archive")
 	
+	# if snakefile_updated:
+	# 	os.system("git add Snakefile")
+	
+	if conda_updated:
+		os.system("git add "+ new_conda_file)
+	
+	os.system("git add pipeline_version.txt")
+	
+	os.system("git commit -m 'Updated pipeline version to "+new_pipeline_version+"'")
+	
+	os.system("git push")
+
+def archive_pipeline(pipe_vers):
 	# Copy current pipeline file to archive, if not already there
-	current_pipeline_file = pipeline_file.split(".")[0]+"_"+pipeline_version+".txt"
+	current_pipeline_file = pipeline_file.split(".")[0]+"_"+pipe_vers+".txt"
 	print(current_pipeline_file)
 	if not os.path.isfile(archive+current_pipeline_file):
 		shutil.copy2(pipeline_file, archive+current_pipeline_file)
 		print("Archived", archive+current_pipeline_file)
+		archive_updated = True
 	
+def archive_conda(conda_file):
 	# Copy current conda packages file to archive
-	current_conda_file = "conda_packages_v"+conda_version+".txt"
-	print(current_conda_file)
-	if not os.path.isfile(archive+current_conda_file):
-		shutil.copy2(current_conda_file, archive+current_conda_file)
-		print("Archived", archive+current_conda_file)
+	print(conda_file)
+	if not os.path.isfile(archive+conda_file):
+		shutil.copy2(conda_file, archive+conda_file)
+		print("Archived", archive+conda_file)
+		archive_updated = True
+
+def archive_and_update_pipeline():
+	
+	# Archive
+	archive_pipeline(pipeline_version)
+	archive_conda(current_conda_file)
 	
 	new_pipeline_version = new_snakefile_version + "." + file_version \
 						 + "." + new_conda_version
 	
-	if is_pipeline_updated:
+	if is_pipeline_updated(pipeline_version, new_pipeline_version):
 		write_pipeline_version_content(new_pipeline_version)
 		print("Pipeline updated to version:", new_pipeline_version)
+		
+		# Archive new versions
+		archive_pipeline(new_pipeline_version)
+		if conda_updated:
+			archive_conda(new_conda_file)
+		
+		#commit_and_push_to_github()
 	else:
-		print("Pipeline is already up-to-date")
+		print("Pipeline already up-to-date")
 
 archive_and_update_pipeline()

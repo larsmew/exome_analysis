@@ -117,7 +117,7 @@ file_date = "06/10/2016"
 ####                                                                       ####
 ###############################################################################
 '''
-TBD
+These functions initiates conda update system
 '''
 current_conda_file = "conda_packages_v"+conda_version+".txt"
 
@@ -153,7 +153,7 @@ else:
 ####                                                                       ####
 ###############################################################################
 '''
-
+Creates the new pipeline_version file and commits and pushes it to git
 '''
 
 def is_pipeline_updated(pipeline_version, new_pipeline_version):
@@ -231,10 +231,14 @@ def archive_and_update_pipeline():
 	archive_pipeline(pipeline_version)
 	archive_conda(current_conda_file)
 	
+	# Get the newest pipeline version
 	new_pipeline_version = new_snakefile_version + "." + file_version \
 						 + "." + new_conda_version
 	
+	# If pipeline is updated
 	if is_pipeline_updated(pipeline_version, new_pipeline_version):
+		
+		# Create the new pipeline_version file
 		write_pipeline_version_content(new_pipeline_version)
 		print("Pipeline updated to version:", new_pipeline_version)
 		
@@ -242,11 +246,15 @@ def archive_and_update_pipeline():
 		archive_pipeline(new_pipeline_version)
 		if conda_updated:
 			archive_conda(new_conda_file)
+			
+			# Remove old version from working dir
 			os.system("rm -f " + current_conda_file)
 			print("Removed old conde file from top folder")
 		
+		# Commit changes to git and push to github
 		commit_and_push_to_github(new_pipeline_version)
 	else:
+		# If no updates to pipeline
 		print("Pipeline already up-to-date")
 
 archive_and_update_pipeline()

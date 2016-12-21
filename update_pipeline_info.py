@@ -227,7 +227,7 @@ def archive_conda(conda_file):
 
 def archive_and_update_pipeline():
 	
-	# Archive
+	# Archive old versions
 	archive_pipeline(pipeline_version)
 	archive_conda(current_conda_file)
 	

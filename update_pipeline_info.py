@@ -277,7 +277,7 @@ def commit_and_push_to_github(new_pipeline_version):
 	else:
 		print("Failed to push changes to remote git (GitHub)")
 		print("Changes already commited!")
-		print("Check internet connection or if GitHub is down")")
+		print("Check internet connection or if GitHub is down")
 
 # Copy current pipeline file to archive, if not already there
 def archive_pipeline(pipe_vers):

@@ -9,7 +9,7 @@ cffi=1.9.1=py35_0
 clyent=1.2.2=py35_0
 conda=4.2.13=py35_0
 conda-env=2.6.0=0
-cryptography=1.6=py35_0
+cryptography=1.7.1=py35_0
 curl=7.49.0=1
 docutils=0.12=py35_2
 dropbox=5.2.1=py35_0
@@ -66,6 +66,6 @@ urllib3=1.12=py35_0
 varscan=2.4.2=0
 wheel=0.29.0=py35_0
 wrapt=1.10.8=py35_0
-xz=5.2.2=0
+xz=5.2.2=1
 yaml=0.1.6=0
 zlib=1.2.8=3

@@ -18,6 +18,10 @@ Version 1 includes the following functionality:
 - Backup conda packages list
 - Archiving pipeline_version files and conda_packages files in pipeline_archive folder for later restoration of a specific pipeline version
 
+ToDo version 1:
+
+- Roll-back feature in case of errors
+
 Functionality planned for version 2:
 
 - Easy restore of a specific pipeline version into seperate folder and conda environment for a conflict free restore without touching the current setup.

@@ -3,7 +3,7 @@ __version__ = "1.0"
 __date__ = "02/01/2017"
 
 from subprocess import check_call
-import sys, os, shutil, time, filecmp
+import sys, os, shutil, time, filecmp, subprocess
 
 # Files to be uploaded, if updated.
 archive_updated = False
@@ -196,9 +196,11 @@ def is_conda_updated(current_conda_file, new_conda_file):
 update_conda()
 
 if is_conda_updated(current_conda_file, new_conda_file):
+	# set updated date and flags
 	new_conda_date = time.strftime("%d/%m/%Y")
 	conda_updated = True
 else:
+	# No updates, use current version
 	new_conda_version = conda_version
 	new_conda_date = conda_date
 
@@ -274,6 +276,8 @@ def commit_and_push_to_github(new_pipeline_version):
 		print("Pushed changes to remote git (GitHub)")
 	else:
 		print("Failed to push changes to remote git (GitHub)")
+		print("Changes already commited!")
+		print("Check internet connection or if GitHub is down")")
 
 # Copy current pipeline file to archive, if not already there
 def archive_pipeline(pipe_vers):
@@ -335,6 +339,14 @@ def archive_and_update_pipeline():
 
 archive_and_update_pipeline()
 
+###############################################################################
+####                                                                       ####
+####                               Bugfixing                               ####
+####                                                                       ####
+###############################################################################
+'''
+Methods for fixing bugs and the state of pipeline files.
+'''
 # Method to fix a failed commit, only for bugfixing
 def fix_failed_commit():
 	new_pipeline_version = "1.0.1.3"

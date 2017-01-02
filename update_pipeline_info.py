@@ -1,6 +1,6 @@
 __author__ = "Lars Andersen <larsmew@gmail.com>"
 __version__ = "1.0"
-__date__ = "05/12/2016"
+__date__ = "02/01/2017"
 
 from subprocess import check_call
 import sys, os, shutil, time, filecmp
@@ -52,7 +52,7 @@ with open(pipeline_file, "r") as f:
 			print("current File version:", file_version)
 		'''
 		# Extract Conda package version
-		elif line.startswith("Conda Packages"):
+		if line.startswith("Conda Packages"):
 			conda_version = line.split(":")[1].strip()
 			print("current Conda version:", conda_version)
 			conda_flag = True
@@ -246,7 +246,7 @@ def write_pipeline_version_content(new_pipeline_version):
 def commit_and_push_to_github(new_pipeline_version):
 	# Add achive to git if updated
 	if archive_updated:
-		check_call("git", "add", archive)
+		check_call(["git", "add", archive])
 		print("Added achive to commit")
 
 	# Obs: Snakefile is added to github when script updates
@@ -255,21 +255,21 @@ def commit_and_push_to_github(new_pipeline_version):
 
 	# Add achive to git if updated
 	if conda_updated:
-		check_call("git", "add", new_conda_file)
-		check_call("git", "rm", current_conda_file)
+		check_call(["git", "add", new_conda_file])
+		check_call(["git", "rm", current_conda_file])
 		print("Added new conda_packages file and removed old one")
 
 	# Add pipeline file to git
-	check_call("git", "add", pipeline_file)
+	check_call(["git", "add", pipeline_file])
 	print("Added new pipeline_version file")
 
 	# Commit changes to git
-	check_call("git", "commit", "-m",
-			   "'Updated pipeline version to "+new_pipeline_version+"'")
+	check_call(["git", "commit", "-m",
+			   "'Updated pipeline version to "+new_pipeline_version+"'"])
 	print("Commited pipeline version:", new_pipeline_version)
 
 	# Push updates to GitHub
-	s = check_call("git", "push")
+	s = check_call(["git", "push"])
 	if s == 0:
 		print("Pushed changes to remote git (GitHub)")
 	else:
@@ -335,9 +335,14 @@ def archive_and_update_pipeline():
 
 archive_and_update_pipeline()
 
-# Fixing fail commit
-# new_pipeline_version = "1.0.1.2"
-# new_conda_file = "conda_packages_v2.txt"
-# archive_updated = True
-# conda_updated = True
-# commit_and_push_to_github(new_pipeline_version)
+# Method to fix a failed commit, only for bugfixing
+def fix_failed_commit():
+	new_pipeline_version = "1.0.1.3"
+	new_conda_file = "conda_packages_v3.txt"
+	current_conda_file = "conda_packages_v2.txt"
+	archive_updated = True
+	conda_updated = True
+	commit_and_push_to_github(new_pipeline_version)
+
+# Fixing failed commit (uncomment to run)
+# fix_failed_commit()

@@ -256,7 +256,7 @@ def update_conda_env(conda_env):
 		with open(new_conda_env_file, "w") as f:
 			# Run export command
 			try:
-			    check_call(["source", "activate", "py2;", "conda", "list", "--export"], stdout=f)
+			    check_call(["source", "activate", env+";", "conda", "list", "--export"], stdout=f)
 			# Throw error if fails
 			except subprocess.CalledProcessError:
 			    # handle errors in the called executable

@@ -123,8 +123,3 @@ Updated: 14/03/2017
 Conda environment: py2
 Version: 1
 Updated: 14/03/2017
-
-
-Conda environment: lol
-Version: 2
-Updated: 13/03/2017

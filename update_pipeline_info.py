@@ -27,6 +27,12 @@ archive = "pipeline_archive/"
 # Dirty hack to extract dates, as date lines are similar.
 snakefile_flag = False
 conda_flag = False
+condaenv_ver_flag = False
+condaenv_date_flag = False
+
+# list of conda environments
+conda_env = []
+
 
 # Scan file and extract relevant information
 with open(pipeline_file, "r") as f:
@@ -61,6 +67,24 @@ with open(pipeline_file, "r") as f:
 			conda_date = line.split(":")[1].strip()
 			print("current Conda date:", conda_date)
 			conda_flag = False
+		# Extract conda environment name
+		elif line.startswith("Conda environment:"):
+			condaenv_name = line.split(":")[1].strip()
+			print("Conda environment:", condaenv_name)
+			condaenv_ver_flag = True
+		# Extract conda environment version
+		elif condaenv_ver_flag:
+			condaenv_ver = line.split(":")[1].strip()
+			print("Conda environment version:", condaenv_ver)
+			condaenv_ver_flag = False
+			condaenv_date_flag = True
+		# Extract conda environment date
+		elif condaenv_date_flag:
+			condaenv_date = line.split(":")[1].strip()
+			print("Conda environment updated:", condaenv_date)
+			condaenv_date_flag = False
+			conda_env.append((condaenv_name, condaenv_ver, condaenv_date))
+
 
 ###############################################################################
 ####                                                                       ####
@@ -123,7 +147,7 @@ else:
 '''
 This section describes the files used for the pipeline.
 
-Note: These are updated manually in this file at the moment
+Note: These are updated manually in this file as they changes rarely
 '''
 
 Reference = "human_g1k_v37_decoy"
@@ -150,6 +174,7 @@ These functions initiates conda update system
 current_conda_file = "conda_packages_v"+conda_version+".txt"
 new_conda_version = str(int(conda_version) + 1)
 new_conda_file = "conda_packages_v"+new_conda_version+".txt"
+new_conda_date = conda_date # Just to make sure it's not missing later
 
 # Method to check if conda packages updated since last pipeline version
 def update_conda():
@@ -180,12 +205,23 @@ def update_conda():
 			# executable not found
 			print("ERROR: 'conda list' command not found")
 			sys.exit(1)
+	
+	# Checks if any conda packages updated or new installed 
+	if is_conda_updated(current_conda_file, new_conda_file):
+		# set updated date and flags
+		new_conda_date = time.strftime("%d/%m/%Y")
+		conda_updated = True
+	else:
+		# No updates, use current version
+		new_conda_version = conda_version
+		new_conda_date = conda_date
+	
 
 # Checks if any conda packages have been updated
 def is_conda_updated(current_conda_file, new_conda_file):
 	print("compares:", current_conda_file, "and", new_conda_file)
 	if filecmp.cmp(current_conda_file, new_conda_file):
-		os.remove(new_conda_file)
+		os.remove(new_conda_file) # remove temp file
 		print("No conda packages updated")
 		return False
 	else:
@@ -193,16 +229,80 @@ def is_conda_updated(current_conda_file, new_conda_file):
 		return True
 
 # Run functions for conda packages
-update_conda()
+# update_conda()
 
-if is_conda_updated(current_conda_file, new_conda_file):
-	# set updated date and flags
-	new_conda_date = time.strftime("%d/%m/%Y")
-	conda_updated = True
-else:
-	# No updates, use current version
-	new_conda_version = conda_version
-	new_conda_date = conda_date
+###############################################################################
+####                                                                       ####
+####                       Conda environements                             ####
+####                                                                       ####
+###############################################################################
+'''
+Packages in conda environments other than default are updated manually 
+as there are older packages installed for some tools to work properly
+e.g. bedtools 2.23.00
+'''
+
+new_conda_env = []
+
+def update_conda_env(conda_env):
+	for env, ver, date in conda_env:
+		print(env, ver, date)
+		
+		current_conda_env_file = "conda_env_"+env+"_v"+ver+".txt"
+		new_ver = str(int(ver) + 1)
+		new_conda_env_file = "conda_env_"+env+"_v"+new_ver+".txt"
+		
+		# Export updated packages to new conda file
+		with open(new_conda_env_file, "w") as f:
+			# Run export command
+			try:
+			    check_call(["source", "activate", "py2;", "conda", "list", "--export"], stdout=f)
+			# Throw error if fails
+			except subprocess.CalledProcessError:
+			    # handle errors in the called executable
+				print("ERROR: in 'conda list' command")
+				sys.exit(1)
+			except OSError:
+				# executable not found
+				print("ERROR: 'conda list' command not found")
+				sys.exit(1)
+		
+		# Checks if any conda packages updated or new installed 
+		if is_conda_updated(current_conda_env_file, new_conda_env_file):
+			# set updated date and flags
+			new_date = time.strftime("%d/%m/%Y")
+			new_env = (env, new_ver, new_date)
+			new_conda_env.append(new_env)
+		else:
+			# No updates, use current version
+			old_env = (env, ver, date)
+			new_conda_env.append(old_env)
+
+
+def is_conda_env_updated(current_conda_env_file, new_conda_env_file):
+	print("compares:", current_conda_env_file, "and", new_conda_env_file)
+	if filecmp.cmp(current_conda_env_file, new_conda_env_file):
+		os.remove(new_conda_env_file) # remove temp file
+		print("Conda environment not updated")
+		return False
+	else:
+		print("Conda environment updated")
+		return True
+
+update_conda_env(conda_env)
+
+###############################################################################
+####                                                                       ####
+####                           python packages                             ####
+####                                                                       ####
+###############################################################################
+'''
+These functions initiates the python update system
+'''
+
+
+#def update_python
+
 
 ###############################################################################
 ####                                                                       ####
@@ -337,7 +437,7 @@ def archive_and_update_pipeline():
 		# If no updates to pipeline
 		print("Pipeline already up-to-date")
 
-archive_and_update_pipeline()
+#archive_and_update_pipeline()
 
 ###############################################################################
 ####                                                                       ####

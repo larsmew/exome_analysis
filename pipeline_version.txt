@@ -109,3 +109,22 @@ wrapt=1.10.8=py35_0
 xz=5.2.2=1
 yaml=0.1.6=0
 zlib=1.2.8=3
+
+Python2 packages - version: 1
+Updated: 14/03/2017
+
+Python3 packages - version: 1
+Updated: 14/03/2017
+
+R packages - version: 1
+Updated: 14/03/2017
+
+# Conda environments (manually updated)
+Conda environment: py2
+Version: 1
+Updated: 14/03/2017
+
+
+Conda environment: lol
+Version: 2
+Updated: 13/03/2017

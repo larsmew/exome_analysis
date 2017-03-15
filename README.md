@@ -10,6 +10,11 @@ The Snakefile currently describes a pipeline for analyzing exomes
 
 A script to automaize pipeline versions and updates for easy and systematic documentation of programs, files and tools used for the analysis.
 
+Major 1.5 Update:
+
+- Added support for python 2 and 3 packages, and R packages
+- Added semi-working support for conda environments (with special treatment of py2 environment currently)
+
 Version 1 includes the following functionality:
 
 - Update pipeline_version.txt describing the pipeline files, Snakefile version and conda packages.

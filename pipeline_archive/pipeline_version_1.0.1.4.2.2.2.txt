@@ -1,4 +1,4 @@
-Pipeline version: 1.0.1.4.2.2.2.2
+Pipeline version: 1.0.1.4.2.2.2
 Date: 15/03/2017
 
 Snakefile version: 1.0
@@ -23,6 +23,3 @@ Python3 packages - version:2
 Updated:15/03/2017
 
 R packages - version:2
-Updated:15/03/2017
-
-# Conda environments (manually updated) 

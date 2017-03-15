@@ -12,9 +12,21 @@ backupPackages <- function(filename = "R_packages"){
     write.table(installedpkgs, file=paste0(filename, ".txt"), row.names = F, col.names = F, sep = "=", quote = F)
 }
 
+# Update all packages from all sources
+updateAllPackages <- function(){
+    # Update from bioconductor    
+    source("https://bioconductor.org/biocLite.R")
+    biocLite(ask = FALSE)
+    
+    # Update from CRAN
+    update.packages(ask = FALSE, repos = "https://cran.rstudio.com")
+}
+
 if (length(args) == 1){
     filename = args[1]
 } else {
     filename = "R_packages"
 }
 backupPackages(filename)
+
+updateAllPackages()

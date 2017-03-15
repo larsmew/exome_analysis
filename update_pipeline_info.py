@@ -9,6 +9,10 @@ import sys, os, shutil, time, filecmp, subprocess
 archive_updated = False
 snakefile_updated = False
 conda_updated = False
+py2_updated = False
+py3_updated = False
+r_updated = False
+condaenv_py2_updated = False
 
 
 ###############################################################################
@@ -27,6 +31,9 @@ archive = "pipeline_archive/"
 # Dirty hack to extract dates, as date lines are similar.
 snakefile_flag = False
 conda_flag = False
+python2_flag = False
+python3_flag = False
+r_flag = False
 condaenv_ver_flag = False
 condaenv_date_flag = False
 
@@ -67,6 +74,36 @@ with open(pipeline_file, "r") as f:
 			conda_date = line.split(":")[1].strip()
 			print("current Conda date:", conda_date)
 			conda_flag = False
+		# Extract python2 version
+		if line.startswith("Python2 packages"):
+			py2_version = line.split(":")[1].strip()
+			print("current Python2 version:", py2_version)
+			python2_flag = True
+		# Extract python2 date
+		elif python2_flag:
+			py2_date = line.split(":")[1].strip()
+			print("current Python2 date:", py2_date)
+			python2_flag = False
+		# Extract python3 version
+		if line.startswith("Python3 packages"):
+			py3_version = line.split(":")[1].strip()
+			print("current Python3 version:", py3_version)
+			python3_flag = True
+		# Extract python3 date
+		elif python3_flag:
+			py3_date = line.split(":")[1].strip()
+			print("current Python3 date:", py3_date)
+			python3_flag = False
+		# Extract R version
+		if line.startswith("R packages"):
+			r_version = line.split(":")[1].strip()
+			print("current R version:", r_version)
+			r_flag = True
+		# Extract python3 date
+		elif r_flag:
+			r_date = line.split(":")[1].strip()
+			print("current R date:", r_date)
+			r_flag = False
 		# Extract conda environment name
 		elif line.startswith("Conda environment:"):
 			condaenv_name = line.split(":")[1].strip()
@@ -174,7 +211,7 @@ These functions initiates conda update system
 current_conda_file = "conda_packages_v"+conda_version+".txt"
 new_conda_version = str(int(conda_version) + 1)
 new_conda_file = "conda_packages_v"+new_conda_version+".txt"
-new_conda_date = conda_date # Just to make sure it's not missing later
+new_conda_date = time.strftime("%d/%m/%Y")
 
 # Method to check if conda packages updated since last pipeline version
 def update_conda():
@@ -209,12 +246,10 @@ def update_conda():
 	# Checks if any conda packages updated or new installed 
 	if is_conda_updated(current_conda_file, new_conda_file):
 		# set updated date and flags
-		new_conda_date = time.strftime("%d/%m/%Y")
 		conda_updated = True
 	else:
 		# No updates, use current version
 		new_conda_version = conda_version
-		new_conda_date = conda_date
 	
 
 # Checks if any conda packages have been updated
@@ -243,6 +278,8 @@ e.g. bedtools 2.23.00
 '''
 
 new_conda_env = []
+new_condaenv_py2_file = ""
+current_condaenv_py2_file = ""
 
 def update_conda_env(conda_env):
 	for env, ver, date in conda_env:
@@ -251,21 +288,23 @@ def update_conda_env(conda_env):
 		current_conda_env_file = "conda_env_"+env+"_v"+ver+".txt"
 		new_ver = str(int(ver) + 1)
 		new_conda_env_file = "conda_env_"+env+"_v"+new_ver+".txt"
+
+		os.system("source activate "+env+"; conda list --export > "+new_conda_env_file)
 		
 		# Export updated packages to new conda file
-		with open(new_conda_env_file, "w") as f:
-			# Run export command
-			try:
-			    check_call(["source", "activate", env+";", "conda", "list", "--export"], stdout=f)
-			# Throw error if fails
-			except subprocess.CalledProcessError:
-			    # handle errors in the called executable
-				print("ERROR: in 'conda list' command")
-				sys.exit(1)
-			except OSError:
-				# executable not found
-				print("ERROR: 'conda list' command not found")
-				sys.exit(1)
+		# with open(new_conda_env_file, "w") as f:
+		# 	# Run export command
+		# 	try:
+		# 	    check_call(["source", "activate", env+";", "conda", "list", "--export"], stdout=f)
+		# 	# Throw error if fails
+		# 	except subprocess.CalledProcessError:
+		# 	    # handle errors in the called executable
+		# 		print("ERROR: in 'conda list' command")
+		# 		sys.exit(1)
+		# 	except OSError:
+		# 		# executable not found
+		# 		print("ERROR: 'conda list' command not found")
+		# 		sys.exit(1)
 		
 		# Checks if any conda packages updated or new installed 
 		if is_conda_updated(current_conda_env_file, new_conda_env_file):
@@ -273,9 +312,14 @@ def update_conda_env(conda_env):
 			new_date = time.strftime("%d/%m/%Y")
 			new_env = (env, new_ver, new_date)
 			new_conda_env.append(new_env)
+			if env == "py2":
+				new_condaenv_py2_file = new_conda_env_file
+				current_condaenv_py2_file = current_conda_env_file
+				condaenv_py2_updated = True
 		else:
 			# No updates, use current version
-			old_env = (env, ver, date)
+			new_date = time.strftime("%d/%m/%Y")
+			old_env = (env, ver, new_date)
 			new_conda_env.append(old_env)
 
 
@@ -289,7 +333,7 @@ def is_conda_env_updated(current_conda_env_file, new_conda_env_file):
 		print("Conda environment updated")
 		return True
 
-update_conda_env(conda_env)
+#update_conda_env(conda_env)
 
 ###############################################################################
 ####                                                                       ####
@@ -300,9 +344,90 @@ update_conda_env(conda_env)
 These functions initiates the python update system
 '''
 
+current_py2_file = "conda_env_py2_v"+py2_version+".txt"
+new_py2_version = str(int(py2_version) + 1)
+new_py2_file = "conda_env_py2_v"+new_py2_version+".txt"
+new_py2_date = time.strftime("%d/%m/%Y")
 
-#def update_python
+def update_python2():
+	
+	# Update python2 packages
+	os.system("source activate py2; \
+			   pip freeze --local | grep -v '^\-e' | cut -d = -f 1  | xargs -n1 pip install -U; \
+			   pip freeze > " + new_py2_file)
+			   
+	# Checks if any python2 packages updated or new installed
+	print("compares:", current_py2_file, "and", new_py2_file)
+	if filecmp.cmp(current_py2_file, new_py2_file):
+		print("Python2 packages not updated") # Files the same
+		os.remove(new_py2_file) # remove temp file
+		new_py2_version = py2_version
+	else:
+		print("Python2 packages are updated")
+		py2_updated = True
 
+
+current_py3_file = "conda_env_py3_v"+py3_version+".txt"
+new_py3_version = str(int(py3_version) + 1)
+new_py3_file = "conda_env_py3_v"+new_py3_version+".txt"
+new_py3_date = time.strftime("%d/%m/%Y")
+
+def update_python3():
+	
+	# Update python3 packages
+	os.system("pip freeze --local | grep -v '^\-e' | cut -d = -f 1  | xargs -n1 pip install -U; \
+			   pip freeze > " + new_py3_file)
+			   
+	# Checks if any python3 packages updated or new installed
+	print("compares:", current_py3_file, "and", new_py3_file)
+	if filecmp.cmp(current_py3_file, new_py3_file):
+		print("Python3 packages already up-to-date") # Files the same
+		os.remove(new_py3_file) # remove temp file
+		new_py3_version = py3_version
+	else:
+		print("Python3 packages are updated")
+		py3_updated = True
+		
+
+
+#update_python2()
+#update_python3()
+
+###############################################################################
+####                                                                       ####
+####                               R packages                              ####
+####                                                                       ####
+###############################################################################
+'''
+These functions initiates the R package update / backup system
+
+
+'''
+
+# from rpy2 import *
+#
+# installedpkgs = ro.r('installed.packages()[,c("Package", "Version")]')
+# ro.r('write.table(installedpkgs, file=filename, row.names = F, col.names = T, sep = "=", quote = F)')
+
+current_r_file = "R_packages_v"+r_version+".txt"
+new_r_version = str(int(r_version) + 1)
+new_r_name = "R_packages_v"+new_r_version
+new_r_file = new_r_name+".txt"
+new_r_date = time.strftime("%d/%m/%Y")
+
+def update_R():
+	os.system("Rscript updateR.R " + new_r_name)
+	
+	if filecmp.cmp(current_r_file, new_r_file):
+		print("R packages already up-to-date") # Files the same
+		os.remove(new_r_file) # remove temp file
+		os.remove(new_r_name+".rda")
+		new_r_version = r_version
+	else:
+		print("R packages are updated")
+		r_updated = True
+	
+#update_R()
 
 ###############################################################################
 ####                                                                       ####
@@ -339,10 +464,26 @@ def write_pipeline_version_content(new_pipeline_version):
 
 		f.write("Conda Packages - version: " + new_conda_version + "\n")
 		f.write("Updated: " + new_conda_date + "\n\n")
+		
+		f.write("Python2 packages - version:" + new_py2_version + "\n")
+		f.write("Updated:" + new_py2_date + "\n\n")
 
-		with open("conda_packages_v"+new_conda_version+".txt", "r") as cp:
-			for line in cp:
-				f.write(line)
+		f.write("Python3 packages - version:" + new_py3_version + "\n")
+		f.write("Updated:" + new_py3_date + "\n\n")
+
+		f.write("R packages - version:" + new_r_version + "\n")
+		f.write("Updated:" + new_R_date + "\n\n")
+		
+		f.write("# Conda environments (manually updated) \n")
+		for env, ver, date in new_conda_env:
+			f.write("Conda environment: " + env + "\n")
+			f.write("Version:" + ver + "\n")
+			f.write("Updated:" + date + "\n")
+		
+		# NO LONGER PRINTS ALL PACKAGES AT END - TOO MUCH (WASTED) SPACE
+		# with open("conda_packages_v"+new_conda_version+".txt", "r") as cp:
+		# 	for line in cp:
+		# 		f.write(line)
 
 # Commits to git and pushes updates to GitHub
 def commit_and_push_to_github(new_pipeline_version):
@@ -358,8 +499,42 @@ def commit_and_push_to_github(new_pipeline_version):
 	# Add achive to git if updated
 	if conda_updated:
 		check_call(["git", "add", new_conda_file])
+		archive_file(new_conda_file)
 		check_call(["git", "rm", current_conda_file])
+		os.remove(current_conda_file)
 		print("Added new conda_packages file and removed old one")
+	
+	# Add achive to git if updated
+	if py2_updated:
+		check_call(["git", "add", new_py2_file])
+		archive_file(new_py2_file)
+		check_call(["git", "rm", current_py2_file])
+		os.remove(current_py2_file)
+		print("Added new py2_packages file and removed old one")
+
+	# Add achive to git if updated
+	if py3_updated:
+		check_call(["git", "add", new_py3_file])
+		archive_file(new_py3_file)
+		check_call(["git", "rm", current_py3_file])
+		os.remove(current_py3_file)
+		print("Added new py3_packages file and removed old one")
+
+	# Add achive to git if updated
+	if r_updated:
+		check_call(["git", "add", new_r_file])
+		archive_file(new_r_file)
+		check_call(["git", "rm", current_r_file])
+		os.remove(current_r_file)
+		print("Added new r_packages file and removed old one")
+	
+	# Add achive to git if updated
+	if condaenv_py2_updated:
+		check_call(["git", "add", new_condaenv_py2_file])
+		archive_file(new_condaenv_py2_file)
+		check_call(["git", "rm", current_condaenv_py2_file])
+		os.remove(current_condaenv_py2_file)
+		print("Added new condaenv_py2_packages file and removed old one")
 
 	# Add pipeline file to git
 	check_call(["git", "add", pipeline_file])
@@ -394,14 +569,14 @@ def archive_pipeline(pipe_vers):
 		archive_updated = True
 
 # Copy current conda packages file to archive, if not already there
-def archive_conda(conda_file):
-	print(conda_file)
+def archive_file(file):
+	print(file)
 	# Check if already in archive, if not, then archive it
-	if not os.path.isfile(archive+conda_file):
+	if not os.path.isfile(archive+file):
 		# Uses copy2 to preserve metadata
-		shutil.copy2(conda_file, archive+conda_file)
+		shutil.copy2(file, archive+file)
 		# Flag update
-		print("Archived", archive+conda_file)
+		print("Archived", archive+file)
 		archive_updated = True
 
 # Method to archive, update and commit pipeline
@@ -409,11 +584,16 @@ def archive_and_update_pipeline():
 
 	# Archive old versions
 	archive_pipeline(pipeline_version)
-	archive_conda(current_conda_file)
+	archive_file(current_conda_file)
+	archive_file(current_condaenv_py2_file)
+	archive_file(current_py2_file)
+	archive_file(current_py3_file)
+	archive_file(current_r_file)
 
 	# Get the newest pipeline version
 	new_pipeline_version = new_snakefile_version + "." + file_version \
-						 + "." + new_conda_version
+						 + "." + new_conda_version + "." + new_py2_version \
+						 + "." + new_py3_version + "." + new_r_version
 
 	# If pipeline is updated
 	if is_pipeline_updated(pipeline_version, new_pipeline_version):
@@ -422,14 +602,8 @@ def archive_and_update_pipeline():
 		write_pipeline_version_content(new_pipeline_version)
 		print("Pipeline updated to version:", new_pipeline_version)
 
-		# Archive new versions
+		# Archive new pipeline version
 		archive_pipeline(new_pipeline_version)
-		if conda_updated:
-			archive_conda(new_conda_file)
-
-			# Remove old version from working dir
-			os.remove(current_conda_file)
-			print("Removed old conda file from top folder")
 
 		# Commit changes to git and push to github
 		commit_and_push_to_github(new_pipeline_version)
@@ -438,6 +612,19 @@ def archive_and_update_pipeline():
 		print("Pipeline already up-to-date")
 
 #archive_and_update_pipeline()
+
+###############################################################################
+####                                                                       ####
+####                             Run commands                              ####
+####                                                                       ####
+###############################################################################
+
+update_conda()
+update_conda_env(conda_env)
+update_python2()
+update_python3()
+update_R()
+archive_and_update_pipeline()
 
 ###############################################################################
 ####                                                                       ####

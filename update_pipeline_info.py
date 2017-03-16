@@ -222,8 +222,11 @@ new_conda_date = conda_date
 # Method to check if conda packages updated since last pipeline version
 def update_conda():
 	
+	global new_conda_version
 	new_conda_version = str(int(conda_version) + 1)
+	global new_conda_file
 	new_conda_file = "conda_packages_v"+new_conda_version+".txt"
+	global new_conda_date
 	new_conda_date = time.strftime("%d/%m/%Y")
 	
 	# Update all conda packages
@@ -291,6 +294,7 @@ e.g. bedtools 2.23.00
 new_conda_env = conda_env
 
 def update_conda_env(conda_env):
+	global new_conda_env
 	new_conda_env = []
 	
 	for env, ver, date in conda_env:
@@ -302,23 +306,8 @@ def update_conda_env(conda_env):
 
 		os.system("source activate "+env+"; conda list --export > "+new_conda_env_file)
 		
-		# Export updated packages to new conda file
-		# with open(new_conda_env_file, "w") as f:
-		# 	# Run export command
-		# 	try:
-		# 	    check_call(["source", "activate", env+";", "conda", "list", "--export"], stdout=f)
-		# 	# Throw error if fails
-		# 	except subprocess.CalledProcessError:
-		# 	    # handle errors in the called executable
-		# 		print("ERROR: in 'conda list' command")
-		# 		sys.exit(1)
-		# 	except OSError:
-		# 		# executable not found
-		# 		print("ERROR: 'conda list' command not found")
-		# 		sys.exit(1)
-		
 		# Checks if any conda packages updated or new installed 
-		if is_conda_updated(current_conda_env_file, new_conda_env_file):
+		if is_conda_env_updated(current_conda_env_file, new_conda_env_file):
 			# set updated date and flags
 			new_date = time.strftime("%d/%m/%Y")
 			new_env = (env, new_ver, new_date)
@@ -334,10 +323,10 @@ def is_conda_env_updated(current_conda_env_file, new_conda_env_file):
 	print("compares:", current_conda_env_file, "and", new_conda_env_file)
 	if filecmp.cmp(current_conda_env_file, new_conda_env_file):
 		os.remove(new_conda_env_file) # remove temp file
-		print("Conda environment not updated")
+		print("Conda environment(s) not updated")
 		return False
 	else:
-		print("Conda environment updated")
+		print("Conda environment(s) updated")
 		return True
 
 #update_conda_env(conda_env)
@@ -358,8 +347,11 @@ new_py2_date = py2_date
 
 def update_python2():
 	
+	global new_py2_version
 	new_py2_version = str(int(py2_version) + 1)
+	global new_py2_file
 	new_py2_file = "py2_packages_v"+new_py2_version+".txt"
+	global new_py2_date
 	new_py2_date = time.strftime("%d/%m/%Y")
 	
 	# Update python2 packages
@@ -385,8 +377,11 @@ new_py3_date = py3_date
 
 def update_python3():
 	
+	global new_py3_version
 	new_py3_version = str(int(py3_version) + 1)
+	global new_py3_file
 	new_py3_file = "py3_packages_v"+new_py3_version+".txt"
+	global new_py3_date
 	new_py3_date = time.strftime("%d/%m/%Y")
 	
 	# Update python3 packages
@@ -426,10 +421,14 @@ new_r_object = "R_packages_v"+new_r_version+".rda"
 new_r_date = r_date
 
 def update_R():
+	global new_r_version
 	new_r_version = str(int(r_version) + 1)
 	new_r_name = "R_packages_v"+new_r_version
+	global new_r_file
 	new_r_file = new_r_name+".txt"
+	global new_r_object
 	new_r_object = new_r_name+".rda"
+	global new_r_date
 	new_r_date = time.strftime("%d/%m/%Y")
 	
 	os.system("Rscript --vanilla updateR.R " + new_r_name)
@@ -616,7 +615,7 @@ def archive_and_update_pipeline():
 	archive_file(current_r_object)
 	
 	# Archive conda env and get version num of 'py2' env for pipeline version
-	new_condaenv_py2_ver = 1
+	new_condaenv_py2_ver = '1'
 	for env, ver, date in conda_env:
 		archive_file("conda_env_"+env+"_v"+ver+".txt")
 		if env == "py2":

@@ -16,16 +16,16 @@ bed: NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed
 Conda Packages - version: 5
 Updated: 16/03/2017
 
-Python2 packages - version:3
+Python2 packages - version: 3
 Updated:16/03/2017
 
-Python3 packages - version:3
+Python3 packages - version: 3
 Updated:16/03/2017
 
-R packages - version:3
+R packages - version: 3
 Updated:16/03/2017
 
 # Conda environments (manually updated) 
 Conda environment: py2
-Version:2
-Updated:16/03/2017
+Version: 2
+Updated: 16/03/2017

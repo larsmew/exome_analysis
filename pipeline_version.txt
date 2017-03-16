@@ -1,5 +1,5 @@
-Pipeline version: 1.0.1.4.2.2.2.2
-Date: 15/03/2017
+Pipeline version: 1.0.1.5.2.2.2.2
+Date: 16/03/2017
 
 Snakefile version: 1.0
 Updated: 31/10/2016
@@ -13,8 +13,8 @@ Mills_and_1000G: Mills_and_1000G_gold_standard.indels.b37.vcf
 interval: NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval
 bed: NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed
 
-Conda Packages - version: 4
-Updated: 15/03/2017
+Conda Packages - version: 5
+Updated: 16/03/2017
 
 Python2 packages - version:2
 Updated:15/03/2017
@@ -26,3 +26,6 @@ R packages - version:2
 Updated:15/03/2017
 
 # Conda environments (manually updated) 
+Conda environment: py2
+Version:2
+Updated:14/03/2017

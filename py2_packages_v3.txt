@@ -1,6 +1,6 @@
 appdirs==1.4.3
 biopython==1.68
-CNVkit==0.8.3
+CNVkit==0.8.5
 cycler==0.10.0
 functools32==3.2.3.post2
 future==0.16.0

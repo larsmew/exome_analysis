@@ -25,4 +25,7 @@ Updated:15/03/2017
 R packages - version:2
 Updated:15/03/2017
 
-# Conda environments (manually updated) 
+# Conda environments (manually updated)
+Conda environment: py2
+Version: 2
+Updated: 14/03/2017

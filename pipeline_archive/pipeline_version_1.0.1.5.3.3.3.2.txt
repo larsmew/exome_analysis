@@ -1,5 +1,5 @@
 Pipeline version: 1.0.1.5.3.3.3.2
-Date: 15/03/2017
+Date: 16/03/2017
 
 Snakefile version: 1.0
 Updated: 31/10/2016
@@ -14,15 +14,18 @@ interval: NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval
 bed: NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed
 
 Conda Packages - version: 5
-Updated: 15/03/2017
+Updated: 16/03/2017
 
 Python2 packages - version:3
-Updated:15/03/2017
+Updated:16/03/2017
 
 Python3 packages - version:3
-Updated:15/03/2017
+Updated:16/03/2017
 
 R packages - version:3
-Updated:15/03/2017
+Updated:16/03/2017
 
 # Conda environments (manually updated) 
+Conda environment: py2
+Version:2
+Updated:16/03/2017

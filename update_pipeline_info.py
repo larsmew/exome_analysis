@@ -290,7 +290,8 @@ def is_conda_updated(current_conda_file, new_conda_file):
 '''
 Packages in conda environments other than default are updated manually 
 as there are older packages installed for some tools to work properly
-e.g. bedtools 2.23.00
+e.g. bedtools 2.23.00.
+The code below updates the version in pipeline_version.txt
 '''
 
 new_conda_env = conda_env
@@ -316,7 +317,7 @@ def update_conda_env(conda_env):
 			new_conda_env.append(new_env)
 		else:
 			# No updates, use current version
-			new_date = time.strftime("%d/%m/%Y")
+			new_date = date
 			old_env = (env, ver, new_date)
 			new_conda_env.append(old_env)
 
@@ -687,7 +688,7 @@ def archive_and_update_pipeline():
 ###############################################################################
 
 # Set to False to update, set to True for simulating update
-simulate_update = True
+simulate_update = False
 update_conda()
 update_conda_env(conda_env)
 update_python2()

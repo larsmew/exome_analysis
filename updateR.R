@@ -27,6 +27,6 @@ if (length(args) == 1){
 } else {
     filename = "R_packages"
 }
-backupPackages(filename)
-
 updateAllPackages()
+
+backupPackages(filename)

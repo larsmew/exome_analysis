@@ -653,7 +653,7 @@ def archive_dir(dir):
 	print(dir)
 	# Check if already in archive, if not, then archive it
 	if not os.path.exists(archive+dir):
-		shutil.copytree(dir, achive+dir)
+		shutil.copytree(dir, archive+dir)
 		# Flag update
 		print("Archived", archive+dir, "dir and files.")
 		global archive_updated
@@ -661,6 +661,9 @@ def archive_dir(dir):
 
 # Method to archive, update and commit pipeline
 def archive_and_update_pipeline():
+
+	# Momentarily set manually #TODO
+	new_condaenv_py2_ver = '2'
 
 	# Get the newest pipeline version
 	new_pipeline_version = new_snakefile_version + "." + file_version \

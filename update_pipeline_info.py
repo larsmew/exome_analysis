@@ -433,11 +433,11 @@ new_r_date = r_date
 def update_R():
 	global new_r_version
 	new_r_version = str(int(r_version) + 1)
-	new_r_name = "R_packages_v"+new_r_version
+	new_r_name = packages+"R_packages_v"+new_r_version
 	global new_r_file
-	new_r_file = packages+new_r_name+".txt"
+	new_r_file = new_r_name+".txt"
 	global new_r_object
-	new_r_object = packages+new_r_name+".rda"
+	new_r_object = new_r_name+".rda"
 	global new_r_date
 	new_r_date = time.strftime("%d/%m/%Y")
 	

@@ -33,6 +33,7 @@ Extracts the information from the current pipeline version
 # Describe pipeline_version infor file and archive folder
 pipeline_file = "pipeline_version.txt"
 archive = "pipeline_archive/"
+packages = "packages/"
 
 # Dirty hack to extract dates, as date lines are similar.
 snakefile_flag = False
@@ -214,9 +215,9 @@ These functions initiates conda update system
 '''
 
 # Define file names
-current_conda_file = "conda_packages_v"+conda_version+".txt"
+current_conda_file = packages+"conda_packages_v"+conda_version+".txt"
 new_conda_version = conda_version
-new_conda_file = "conda_packages_v"+new_conda_version+".txt"
+new_conda_file = packages+"conda_packages_v"+new_conda_version+".txt"
 new_conda_date = conda_date
 
 # Method to check if conda packages updated since last pipeline version
@@ -225,7 +226,7 @@ def update_conda():
 	global new_conda_version
 	new_conda_version = str(int(conda_version) + 1)
 	global new_conda_file
-	new_conda_file = "conda_packages_v"+new_conda_version+".txt"
+	new_conda_file = packages+"conda_packages_v"+new_conda_version+".txt"
 	global new_conda_date
 	new_conda_date = time.strftime("%d/%m/%Y")
 	
@@ -303,9 +304,9 @@ def update_conda_env(conda_env):
 	for env, ver, date in conda_env:
 		print(env, ver, date)
 		
-		current_conda_env_file = "conda_env_"+env+"_v"+ver+".txt"
+		current_conda_env_file = packages+"conda_env_"+env+"_v"+ver+".txt"
 		new_ver = str(int(ver) + 1)
-		new_conda_env_file = "conda_env_"+env+"_v"+new_ver+".txt"
+		new_conda_env_file = packages+"conda_env_"+env+"_v"+new_ver+".txt"
 
 		os.system("source activate "+env+"; conda list --export > "+new_conda_env_file)
 		
@@ -343,9 +344,9 @@ def is_conda_env_updated(current_conda_env_file, new_conda_env_file):
 These functions initiates the python update system
 '''
 
-current_py2_file = "py2_packages_v"+py2_version+".txt"
+current_py2_file = packages+"py2_packages_v"+py2_version+".txt"
 new_py2_version = py2_version
-new_py2_file = "py2_packages_v"+new_py2_version+".txt"
+new_py2_file = packages+"py2_packages_v"+new_py2_version+".txt"
 new_py2_date = py2_date
 
 def update_python2():
@@ -353,7 +354,7 @@ def update_python2():
 	global new_py2_version
 	new_py2_version = str(int(py2_version) + 1)
 	global new_py2_file
-	new_py2_file = "py2_packages_v"+new_py2_version+".txt"
+	new_py2_file = packages+"py2_packages_v"+new_py2_version+".txt"
 	global new_py2_date
 	new_py2_date = time.strftime("%d/%m/%Y")
 	
@@ -376,9 +377,9 @@ def update_python2():
 		py2_updated = True
 
 
-current_py3_file = "py3_packages_v"+py3_version+".txt"
+current_py3_file = packages+"py3_packages_v"+py3_version+".txt"
 new_py3_version = py3_version
-new_py3_file = "py3_packages_v"+new_py3_version+".txt"
+new_py3_file = packages+"py3_packages_v"+new_py3_version+".txt"
 new_py3_date = py3_date
 
 def update_python3():
@@ -386,7 +387,7 @@ def update_python3():
 	global new_py3_version
 	new_py3_version = str(int(py3_version) + 1)
 	global new_py3_file
-	new_py3_file = "py3_packages_v"+new_py3_version+".txt"
+	new_py3_file = packages+"py3_packages_v"+new_py3_version+".txt"
 	global new_py3_date
 	new_py3_date = time.strftime("%d/%m/%Y")
 	
@@ -422,11 +423,11 @@ These functions initiates the R package update / backup system
 
 
 '''
-current_r_file = "R_packages_v"+r_version+".txt"
-current_r_object = "R_packages_v"+r_version+".rda"
+current_r_file = packages+"R_packages_v"+r_version+".txt"
+current_r_object = packages+"R_packages_v"+r_version+".rda"
 new_r_version = r_version
-new_r_file = "R_packages_v"+new_r_version+".txt"
-new_r_object = "R_packages_v"+new_r_version+".rda"
+new_r_file = packages+"R_packages_v"+new_r_version+".txt"
+new_r_object = packages+"R_packages_v"+new_r_version+".rda"
 new_r_date = r_date
 
 def update_R():
@@ -434,9 +435,9 @@ def update_R():
 	new_r_version = str(int(r_version) + 1)
 	new_r_name = "R_packages_v"+new_r_version
 	global new_r_file
-	new_r_file = new_r_name+".txt"
+	new_r_file = packages+new_r_name+".txt"
 	global new_r_object
-	new_r_object = new_r_name+".rda"
+	new_r_object = packages+new_r_name+".rda"
 	global new_r_date
 	new_r_date = time.strftime("%d/%m/%Y")
 	
@@ -614,9 +615,15 @@ def commit_and_push_to_github(new_pipeline_version):
 
 # Copy current pipeline file to archive, if not already there
 def archive_pipeline(pipe_vers):
-	# Graps current pipeline version file
-	current_pipeline_file = pipeline_file.split(".")[0]+"_"+pipe_vers+".txt"
+	# Get current pipeline version file
+	pipeline_name = pipeline_file.split(".")[0]+"_"+pipe_vers
+	current_pipeline_file = pipeline_name+".txt"
 	print(current_pipeline_file)
+	
+	# Creates pipeline archive - with version number - overwriting initial archive
+	global archive
+	archive = archive+pipeline_name
+	os.makedirs(archive)
 
 	# Check if already in archive, if not, then archive it
 	if not os.path.isfile(archive+current_pipeline_file):

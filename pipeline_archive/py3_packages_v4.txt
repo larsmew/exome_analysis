@@ -8,7 +8,7 @@ conda==4.3.16
 cryptography==1.8.1
 cycler==0.10.0
 decorator==4.0.11
-deepTools==2.4.3
+deepTools==2.5.0
 docutils==0.13.1
 dropbox==7.2.1
 ecdsa==0.13

@@ -195,14 +195,14 @@ Note: These are updated manually in this file as they changes rarely
 '''
 
 Reference = "human_g1k_v37_decoy"
-dbsnp = "dbsnp_138.b37.vcf"
+dbsnp = "dbsnp_150.b37.vcf.gz"
 Mills_and_1000G = "Mills_and_1000G_gold_standard.indels.b37.vcf"
 interval = "NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval"
 bed = "NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed"
 
 # Remember to update this, if any of the above file changes!
-file_version = '1'
-file_date = "06/10/2016"
+file_version = '2'
+file_date = "05/05/2017"
 
 
 ###############################################################################

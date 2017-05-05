@@ -23,7 +23,7 @@ mem = "-Xmx32g"
 ref = "/work/sduvarcall/bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"
 bed = "/work/sduvarcall/NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed"
 interval = "/work/sduvarcall/NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval"
-dbsnp = "/work/sduvarcall/knownSNPs/dbsnp_138.b37.vcf"
+dbsnp = "/work/sduvarcall/knownSNPs/dbsnp_150.b37.vcf.gz"
 mills_1000G = "/work/sduvarcall/knownSNPs/Mills_and_1000G_gold_standard.indels.b37.vcf"
 
 '''
@@ -33,6 +33,7 @@ Create log file, containing:
 	- sample(s)
 '''
 onstart:
+	shell("echo '$(head ../../../exome_analysis/pipeline_version.txt -n 1)' >> {log_file}")
 	shell("echo 'Started execution of pipeline:' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
 
 onsuccess:
@@ -216,6 +217,9 @@ rule collectHsMetrics:
 		"&& echo 'Collect Hybrid Selection metrics' >> {log_file}"
 
 
+
+###### Call germline variants using g.vcf files before deriving the final vcf file ######
+
 '''
 Rule to create directory for VCF files
 '''
@@ -235,7 +239,7 @@ rule haplotypeCaller:
 	output:
 		gvcf="gvcf_files/{sample}_raw_variants.g.vcf.gz",
 		#gvcf_index="gvcf_files/{sample}_raw_variants.g.vcf.gz.tbi"
-	threads: 24
+	threads: 1 # Increasing value will disable profiling and results will vary slightly between runs
 	shell:
 		"GenomeAnalysisTK {mem} \ "
 		"-T HaplotypeCaller \ "
@@ -243,12 +247,12 @@ rule haplotypeCaller:
 		"-I {input.bam} \ "
 		"--dbsnp {input.dbsnp} \ "
 		"--genotyping_mode DISCOVERY \ "
-		"-stand_emit_conf 10 \ "
+		"-nct {threads} \ "
+		# "-stand_emit_conf 10 \ " Deprecated in GATK 3.7+
 		"-stand_call_conf 30 \ "
 		"--emitRefConfidence GVCF \ "
 		"--variant_index_type LINEAR \ "
-		"--variant_index_parameter 128000 \ "
-		"-nct {threads} \ "
+		"--variant_index_parameter 128000"
 		# "-o {output.gvcf} \ "
 		" | bgzip -c > {output.gvcf} "
 		"&& tabix -p vcf {output.gvcf}"
@@ -277,14 +281,68 @@ rule genotypeGVCFs:
 		#"-V G37-A043_nimblegen-exome-utr_C1NEGACXX_raw_variants.g.vcf \ "
 		"{params.gvcfs} \ "
 		"--dbsnp {input.dbsnp} \ "
-		"-stand_emit_conf 10 \ "
-		"-stand_call_conf 30 \ "
+		# "-stand_emit_conf 10 \ " Deprecated in GATK 3.7+
+		"-stand_call_conf 30"
 		# "-o {output}"
 		" | bgzip -c > {output} "
 		"&& tabix -p vcf {output}"
 
 		# Write to logfile
 		"&& echo 'Finished GenotypeGVCFs' >> {log_file}"
+
+
+###### Call germline variants directly outputting the final vcf file (harder to add future patients) ######
+'''
+HaplotypeCaller
+'''
+rule haplotypeCallerVcf:
+	input:
+		bam=expand("{sample}_recal.bam", sample=SAMPLES),
+		dbsnp={dbsnp}
+	output:
+		vcf="{fam_name}_variants_noGVCF.vcf"
+	threads: 1 # Increasing value will disable profiling and results will vary slightly between runs
+	shell:
+		"GenomeAnalysisTK {mem} \ "
+		"-T HaplotypeCaller \ "
+		"-R {ref} \ "
+		"-I {input.bam} \ "
+		"--dbsnp {input.dbsnp} \ "
+		"--genotyping_mode DISCOVERY \ "
+		"-nct {threads} \ "
+		# "-stand_emit_conf 10 \ " Deprecated in GATK 3.7+
+		"-stand_call_conf 30"
+		# "-o {output.gvcf} \ "
+		" | bgzip -c > {output.vcf} "
+		"&& tabix -p vcf {output.vcf}"
+
+		# Write to logfile
+		"&& echo 'HaplotypeCaller' >> {log_file}"
+		
+		
+###### Call Somatic Variants using Mutect ######
+'''
+Mutect
+'''
+rule mutect:
+	input:
+		bam=expand("{sample}_recal.bam", sample=SAMPLES),
+		dbsnp={dbsnp}
+	output:
+		vcf="{fam_name}_variants_noGVCF.vcf"
+	threads: 24
+	shell:
+		
+
+
+
+
+
+
+
+
+
+
 
 '''
 

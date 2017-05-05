@@ -495,13 +495,13 @@ def write_pipeline_version_content(new_pipeline_version):
 		f.write("Updated: " + new_conda_date + "\n\n")
 		
 		f.write("Python2 packages - version: " + new_py2_version + "\n")
-		f.write("Updated:" + new_py2_date + "\n\n")
+		f.write("Updated: " + new_py2_date + "\n\n")
 
 		f.write("Python3 packages - version: " + new_py3_version + "\n")
-		f.write("Updated:" + new_py3_date + "\n\n")
+		f.write("Updated: " + new_py3_date + "\n\n")
 
 		f.write("R packages - version: " + new_r_version + "\n")
-		f.write("Updated:" + new_r_date + "\n\n")
+		f.write("Updated: " + new_r_date + "\n\n")
 		
 		f.write("# Conda environments (manually updated) \n")
 		for env, ver, date in new_conda_env:

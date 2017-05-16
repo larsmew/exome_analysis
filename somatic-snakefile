@@ -1,0 +1,100 @@
+__title__ = "Pipeline for Somatic Variant Calling with Mutect2"
+__author__ = "Lars Andersen <larsmew@gmail.com>"
+__date__ = "10/05/2017"
+__version__ = "1.0"
+
+import time
+import os
+
+# Somatic sample information
+configfile: "../somatic_matched_samples.yaml"
+
+# Germline sample information
+SAMPLES, = glob_wildcards("{sample}_R1.fastq.gz")
+FAMNAME = os.getcwd().rsplit("/",1)[1]
+
+# Setup time
+totim = time.time()
+timeFormat = "%Y_%m_%d:%X" # year, month, day, time H:M:S
+mem = "-Xmx24g" # slim nodes
+#mem = "-Xmx32g" # Fat nodes
+
+# Output
+log_file = "log_file_somatic.txt"
+output_somatic = "somatic_variants"
+
+# Explicit paths
+ref = "/work/sduvarcall/bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"
+dbsnp = "/work/sduvarcall/knownSNPs/dbsnp_150.b37.vcf.gz"
+cosmicCoding = "/work/sduvarcall/cosmic/CosmicCodingMuts.vcf.gz"
+cosmicNonCoding = "/work/sduvarcall/cosmic/CosmicNonCodingVariants.vcf.gz"
+
+'''
+Create log file, containing:
+	- Programs used and their version info
+	- Start and stop time of complete workflow
+	- sample(s)
+'''
+onstart:
+	shell("echo $(head /work/sduvarcall/exome_analysis/pipeline_version.txt -n 1) >> {log_file}")
+	shell("echo 'Started execution of pipeline:' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("mkdir -p "+output_somatic)
+
+onsuccess:
+	fiTime = 'Total time:', str((time.time()-totim) / 60), 'minutes'
+	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("echo {fiTime} >> {log_file}")
+	shell("cat {log_file} >> log_file_somatic_success.txt")
+
+onerror:
+	fiTime = 'Total time:', str((time.time()-totim) / 60), 'minutes'
+	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("echo {fiTime} >> {log_file}")
+	shell("echo 'ERROR OCCURED, PLEASE REFER TO SLURM LOGFILE FOR DETAILS' >> {log_file}")
+	shell("cp {log_file} log_file_somatic_error.txt")
+
+'''
+Rule all
+'''
+# if not "fam"+FAMNAME in config:
+# 	print("No matching normal/tumor pair to process")
+# 	exit(0)
+PAIRS = config["fam"+FAMNAME]
+print(PAIRS)
+rule all:
+	input:
+		# expand("{normal}_vs_{tumor}_somatic_variants.vcf", normal=config["fam"+FAMNAME]["normal"], tumor=config["fam"+FAMNAME]["tumor"])
+		[expand(output_somatic+"/{normal}_vs_{tumor}_somatic_variants.vcf",
+			normal=PAIRS[pair]["normal"], 
+			tumor=PAIRS[pair]["tumor"]) for pair in PAIRS]
+
+###### Call Somatic Variants using Mutect ######
+'''
+Mutect
+'''
+rule mutect2:
+	input:
+		#normal=expand("{normal}_recal.bam", normal=config["fam"+FAMNAME]),
+		#tumor=expand("{tumor}_recal.bam", tumor=config["fam"+FAMNAME]),
+		#normal=[expand("{normal}_recal.bam", normal=config["fam"+FAMNAME][pair]["normal"]) for pair in PAIRS],
+		#tumor=[expand("{tumor}_recal.bam", tumor=config["fam"+FAMNAME][pair]["tumor"]) for pair in PAIRS],
+		normal="{normal}_recal.bam",
+		tumor="{tumor}_recal.bam",
+		dbsnp={dbsnp},
+		cosmicCoding={cosmicCoding},
+		cosmicNonCoding={cosmicNonCoding}
+	output:
+		vcf=output_somatic+"/{normal}_vs_{tumor}_somatic_variants.vcf"
+		#vcf="somatic_variants.vcf"
+	threads: 8
+	shell:
+		"GenomeAnalysisTK {mem} \ "
+		"-T MuTect2 \ "
+		"-R {ref} \ "
+		"-I:tumor {input.tumor} \ "
+		"-I:normal {input.normal} \ "
+		"--dbsnp {dbsnp} \ "
+		"--cosmic {cosmicCoding} \ "
+		"--cosmic {cosmicNonCoding} \ "
+		"-nct {threads} \ "
+		"-o {output.vcf} "

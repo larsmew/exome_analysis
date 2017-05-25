@@ -7,7 +7,7 @@ import time
 import os
 
 #########################################################
-####					   Input					 ####
+####                       Input                     ####
 #########################################################
 # Somatic matched samples information
 configfile: "../somatic_matched_samples.yaml"
@@ -23,14 +23,14 @@ cosmicNonCoding = "/work/sduvarcall/cosmic/CosmicNonCodingVariants.vcf.gz"
 
 
 #########################################################
-####					  Output				  	 ####
+####                      Output                     ####
 #########################################################
 log_file = "log_file_somatic.txt"
 output_somatic = "somatic_variants"
 
 
 #########################################################
-####					   Setup					 ####
+####                       Setup                     ####
 #########################################################
 # Timing
 totim = time.time()
@@ -47,7 +47,7 @@ CHROM = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
 
 
 #########################################################
-####  Define workflow start, stop and error actions	 ####
+####  Define workflow start, stop and error actions  ####
 #########################################################
 onstart:
 	shell("echo $(head /work/sduvarcall/exome_analysis/pipeline_version.txt -n 1) >> {log_file}")
@@ -79,8 +79,8 @@ rule all:
 			tumor=PAIRS[pair]["tumor"]) for pair in PAIRS]
 		
 #########################################################
-####	   Call Somatic Variants using Mutect2		 ####
-####			 on per chromesome basis			 ####
+####       Call Somatic Variants using Mutect2       ####
+####             on per chromesome basis             ####
 #########################################################
 '''
 Mutect
@@ -110,7 +110,7 @@ rule mutect2:
 
 
 #########################################################
-####			Combine VCFs files into one			 ####
+####           Combine VCFs files into one           ####
 #########################################################
 rule combineVCFs:
 	input:

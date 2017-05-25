@@ -105,35 +105,15 @@ rule mutect2:
 		"-L {wildcards.chrom} \ "
 		"-o {output.vcf} "
 
-def addArgs(wildcards):
-	if wildcards[0][4] == "A":
-		normal = wildcards[1]
-		tumor = wildcards[0]
-	else:
-		normal = wildcards[0]
-		tumor = wildcards[1]
-	print(wildcards[0])
-	print(wildcards[1])
-	return ["-V "+output_somatic+"/"+normal+"_vs_"+tumor+"_somatic_variants_"+chrom+".vcf" for chrom in CHROM]
 
 rule combineVCFs:
 	input:
 		vcfs=expand(output_somatic+"/{{normal}}_vs_{{tumor}}_somatic_variants_{chrom}.vcf", chrom=CHROM)
-		#vcfs=[output_somatic+"/{normal}_vs_{tumor}_somatic_variants_"+chrom+".vcf" for chrom in CHROM]
-		#vcfs=expand(output_somatic+"/somatic_mutations_{chrom}.vcf", chrom=CHROM)
 	output:
 		vcf=output_somatic+"/{normal}_vs_{tumor}_somatic_variants.vcf"
 	params:
-		#vcfs=expand("-V "+output_somatic+"/{{normal}}_{chrom}", chrom=CHROM)
-		#vcfs=["-V "+output_somatic+"/{normal}_vs_{tumor}_somatic_variants_"+chrom+".vcf" for chrom in CHROM]
-		#vcfs=expand("-V "+output_somatic+"/{{normal}}_vs_{{tumor}}_somatic_variants_{chrom}.vcf", chrom=CHROM)
-		#vcfs=["-V " for chrom in CHROM]
-		#vcfs=expand("-V "+output_somatic+"/{normal}_vs_{tumor}_somatic_variants_{chrom}.vcf", chrom=CHROM)
-		#vcfs="-V "+output_somatic+"/{normal}_vs_{tumor}_somatic_variants_{chrom}.vcf"
-		#vcfs=addArgs,
-		#vcfs=lambda wildcards: ["-V "+output_somatic+"/"+wildcards.normal+"_vs_"+wildcards.tumor+"_somatic_variants_"+chrom+".vcf" for chrom in CHROM]
-		vcfs=lambda wildcards: ["-V "+output_somatic+"/"+wildcards[0]+"_vs_"+wildcards[1]+"_somatic_variants_"+chrom+".vcf" for chrom in CHROM]
-		#vcfs=lambda wildcards: " -V ".join([output_somatic+"/{wildcards[0]}_vs_{wildcards[1]}_somatic_variants_"+chrom+".vcf" for chrom in CHROM])
+		vcfs=lambda wildcards: expand("-V "+output_somatic+"/"+wildcards.normal+"_vs_"+
+									  wildcards.tumor+"_somatic_variants_{chrom}.vcf", chrom=CHROM)
 	shell:
 		"GenomeAnalysisTK \ "
 		"-T CombineVariants \ "

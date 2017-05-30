@@ -1,5 +1,5 @@
-Pipeline version: 1.0.2.7.5.5.5.2
-Date: 31/05/2017
+Pipeline version: 1.0.2.8.6.6.6.2
+Date: 30/05/2017
 
 Snakefile version: 1.0
 Updated: 31/10/2016
@@ -12,22 +12,22 @@ dbsnp: dbsnp_150.b37.vcf.gz
 Mills_and_1000G: Mills_and_1000G_gold_standard.indels.b37.vcf
 interval: NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval
 bed: NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed
-cosmicCodingMuts: CosmicCodingMuts.vcf
-cosmicNonCodingMuts: CosmicNonCodingVariants.vcf
 
-Conda Packages - version: 7
-Updated: 31/05/2017
+cosmic: Cosmic-combined_v81_b37.vcf
 
-Python2 packages - version: 5
-Updated: 31/05/2017
+Conda Packages - version: 8
+Updated: 30/05/2017
 
-Python3 packages - version: 5
-Updated: 31/05/2017
+Python2 packages - version: 6
+Updated: 30/05/2017
 
-R packages - version: 5
-Updated: 31/05/2017
+Python3 packages - version: 6
+Updated: 30/05/2017
+
+R packages - version: 6
+Updated: 30/05/2017
 
 # Conda environments (manually updated) 
 Conda environment: py2
 Version: 3
-Updated: 31/05/2017
+Updated: 30/05/2017

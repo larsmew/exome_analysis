@@ -1,5 +1,5 @@
-Pipeline version: 1.0.2.7.5.5.5.2
-Date: 31/05/2017
+Pipeline version: 1.0.2.8.6.6.6.2
+Date: 09/06/2017
 
 Snakefile version: 1.0
 Updated: 31/10/2016
@@ -15,17 +15,17 @@ bed: NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed
 cosmicCodingMuts: CosmicCodingMuts.vcf
 cosmicNonCodingMuts: CosmicNonCodingVariants.vcf
 
-Conda Packages - version: 7
-Updated: 31/05/2017
+Conda Packages - version: 8
+Updated: 09/06/2017
 
-Python2 packages - version: 5
-Updated: 31/05/2017
+Python2 packages - version: 6
+Updated: 09/06/2017
 
-Python3 packages - version: 5
-Updated: 31/05/2017
+Python3 packages - version: 6
+Updated: 09/06/2017
 
-R packages - version: 5
-Updated: 31/05/2017
+R packages - version: 6
+Updated: 09/06/2017
 
 # Conda environments (manually updated) 
 Conda environment: py2

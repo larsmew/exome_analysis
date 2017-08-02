@@ -25,6 +25,7 @@ bed = "/work/sduvarcall/NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetR
 interval = "/work/sduvarcall/NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval"
 dbsnp = "/work/sduvarcall/knownSNPs/dbsnp_150.b37.vcf.gz"
 mills_1000G = "/work/sduvarcall/knownSNPs/Mills_and_1000G_gold_standard.indels.b37.vcf"
+cosmic = "/work/sduvarcall/cosmic/Cosmic-combined_v81_b37.vcf"
 
 '''
 Create log file, containing:
@@ -33,7 +34,7 @@ Create log file, containing:
 	- sample(s)
 '''
 onstart:
-	shell("echo '$(head ../../../exome_analysis/pipeline_version.txt -n 1)' >> {log_file}")
+	shell("echo $(head /work/sduvarcall/exome_analysis/pipeline_version.txt -n 1) >> {log_file}")
 	shell("echo 'Started execution of pipeline:' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
 
 onsuccess:
@@ -320,18 +321,26 @@ rule haplotypeCallerVcf:
 		"&& echo 'HaplotypeCaller' >> {log_file}"
 		
 		
-###### Call Somatic Variants using Mutect ######
+###### Call Somatic Variants using Mutect2 ######
 '''
 Mutect
 '''
-rule mutect:
+rule mutect2:
 	input:
-		bam=expand("{sample}_recal.bam", sample=SAMPLES),
+		normal=,
+		tumor=,
 		dbsnp={dbsnp}
 	output:
-		vcf="{fam_name}_variants_noGVCF.vcf"
-	threads: 24
+		vcf="{fam_name}_somatic_variants.vcf"
 	shell:
+	    "GenomeAnalysisTK.jar {mem} \ "
+	    "-T MuTect2 \ "
+	    "-R {ref} \ "
+	    "-I:tumor {tumor} \ "
+	    "-I:normal {normal} \ "
+	    "--dbsnp dbSNP.vcf \ "
+	    "--cosmic COSMIC.vcf \ "
+	    "-o {output.vcf} "
 		
 
 

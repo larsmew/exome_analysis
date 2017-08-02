@@ -1,4 +1,4 @@
-Pipeline version: 1.0.2.10.8.8.8.2
+Pipeline version: 1.0.2.10.8.8.8.4
 Date: 02/08/2017
 
 Snakefile version: 1.0

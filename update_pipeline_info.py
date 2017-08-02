@@ -199,10 +199,12 @@ dbsnp = "dbsnp_150.b37.vcf.gz"
 Mills_and_1000G = "Mills_and_1000G_gold_standard.indels.b37.vcf"
 interval = "NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval"
 bed = "NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed"
+cosmicCoding = "CosmicCodingMuts.vcf"
+cosmicNonCoding = "CosmicNonCodingVariants.vcf"
 
 # Remember to update this, if any of the above file changes!
 file_version = '2'
-file_date = "05/05/2017"
+file_date = "09/05/2017"
 
 
 ###############################################################################
@@ -489,7 +491,9 @@ def write_pipeline_version_content(new_pipeline_version):
 		f.write("dbsnp: " + dbsnp + "\n")
 		f.write("Mills_and_1000G: " + Mills_and_1000G + "\n")
 		f.write("interval: " + interval + "\n")
-		f.write("bed: " + bed + "\n\n")
+		f.write("bed: " + bed + "\n")
+		f.write("cosmicCodingMuts: " + cosmicCoding + "\n")
+		f.write("cosmicNonCodingMuts: " + cosmicNonCoding + "\n\n")
 
 		f.write("Conda Packages - version: " + new_conda_version + "\n")
 		f.write("Updated: " + new_conda_date + "\n\n")
@@ -585,14 +589,16 @@ def commit_and_push_to_github(new_pipeline_version):
 			env = new_conda_env[i][0]
 			ver = new_conda_env[i][1]
 			old_ver = conda_env[i][1]
-			check_call(["git", "add", "conda_env_"+env+"_v"+ver+".txt"])
+			new_conda_env_file = "packages/conda_env_"+env+"_v"+ver+".txt"
+			old_conda_env_file = "packages/conda_env_"+env+"_v"+old_ver+".txt"
+			check_call(["git", "add", new_conda_env_file])
 			#archive_file("conda_env_"+env+"_v"+ver+".txt")
 			try:
-				check_call(["git", "rm", "conda_env_"+env+"_v"+old_ver+".txt"])
+				check_call(["git", "rm", old_conda_env_file])
 			except subprocess.CalledProcessError:
 			    # handle errors in the called executable
-				if os.path.isfile("conda_env_"+env+"_v"+old_ver+".txt"):
-					os.remove("conda_env_"+env+"_v"+old_ver+".txt")
+				if os.path.isfile(old_conda_env_file):
+					os.remove(old_conda_env_file)
 			print("Added new conda_env_"+env+"_v"+ver+".txt file and removed old one")
 
 	# Add pipeline file to git
@@ -614,30 +620,32 @@ def commit_and_push_to_github(new_pipeline_version):
 		print("Check internet connection or if GitHub is down")
 
 # Copy current pipeline file to archive, if not already there
-def archive_pipeline(pipe_vers):
+def archive_pipeline(pipe_vers, archive):
 	# Get current pipeline version file
 	pipeline_name = pipeline_file.split(".")[0]+"_"+pipe_vers
 	current_pipeline_file = pipeline_name+".txt"
 	print(current_pipeline_file)
 	
-	# Creates pipeline archive - with version number - overwriting initial archive
-	global archive
-	archive = archive+pipeline_name+"/"
-	if not os.path.exists(archive):
-		os.makedirs(archive)
+	# Creates pipeline archive - with version number
+	pip_archive = archive+pipeline_name+"/"
+	if not os.path.exists(pip_archive):
+		os.makedirs(pip_archive)
 
 	# Check if already in archive, if not, then archive it
-	if not os.path.isfile(archive+current_pipeline_file):
+	if not os.path.isfile(pip_archive+current_pipeline_file):
 		# Uses copy2 to preserve metadata
-		shutil.copy2(pipeline_file, archive+current_pipeline_file)
+		shutil.copy2(pipeline_file, pip_archive+current_pipeline_file)
 		# Flag update
-		print("Archived", archive+current_pipeline_file)
+		print("Archived", pip_archive+current_pipeline_file)
 		global archive_updated
 		archive_updated = True
+	
+	# Return specific pipeline archive folder version
+	return pip_archive
 
 
 # Copy current conda packages file to archive, if not already there
-def archive_file(file):
+def archive_file(file, archive):
 	print(file)
 	# Check if already in archive, if not, then archive it
 	if not os.path.isfile(archive+file):
@@ -649,8 +657,8 @@ def archive_file(file):
 		archive_updated = True
 
 
-def archive_dir(dir):
-	print(dir)
+def archive_dir(dir, archive):
+	print(archive+dir)
 	# Check if already in archive, if not, then archive it
 	if not os.path.exists(archive+dir):
 		shutil.copytree(dir, archive+dir)
@@ -663,7 +671,7 @@ def archive_dir(dir):
 def archive_and_update_pipeline():
 
 	# Momentarily set manually #TODO
-	new_condaenv_py2_ver = '2'
+	new_condaenv_py2_ver = '4'
 
 	# Get the newest pipeline version
 	new_pipeline_version = new_snakefile_version + "." + file_version \
@@ -678,10 +686,10 @@ def archive_and_update_pipeline():
 		write_pipeline_version_content(new_pipeline_version)
 		print("Pipeline updated to version:", new_pipeline_version)
 
-		# Archive new pipeline version
-		archive = "pipeline_archive/"
-		archive_pipeline(new_pipeline_version)
-		archive_dir(packages)
+		# Archive new pipeline version - first the info file
+		pip_archive = archive_pipeline(new_pipeline_version, archive)
+		# Then package information
+		archive_dir(packages, pip_archive)
 
 		# Commit changes to git and push to github
 		commit_and_push_to_github(new_pipeline_version)
@@ -693,10 +701,10 @@ def archive_and_update_pipeline():
 def archive_old_versions():
 	
 	## Archive old versions ##
-	archive_pipeline(pipeline_version)
+	pip_archive = archive_pipeline(pipeline_version, archive)
 	
 	## Archive directory including files ##
-	archive_dir(packages)
+	archive_dir(packages, pip_archive)
 	
 	## Per file basis ##
 	# archive_file(current_conda_file)

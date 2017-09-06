@@ -73,7 +73,7 @@ rule map_and_sort:
 		temp("{sample}_aligned_sorted.bam")
 	params:
 		#rg = "@RG\tID:{sample}\tLB:NimbleGen\tPL:Illumina\tSM:{sample}\tPU:{sample}"
-		rg = "@RG\tID:bwa\tLB:NimbleGen\tPL:Illumina\tSM:{sample}\tPU:{sample}"
+		rg = "@RG\tID:{sample}\tLB:Illumina\tPL:Illumina\tSM:{sample}\tPU:{sample}"
 	benchmark:
 		"{sample}.bwa.benchmark.txt"
 	threads: 24

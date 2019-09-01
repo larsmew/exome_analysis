@@ -1,0 +1,127 @@
+__author__ = "Lars Andersen <larsmew@gmail.com>"
+__date__ = "15/04/2018"
+__version__ = "1.0"
+
+import time
+import os
+
+SAMPLES, = glob_wildcards("{sample}_H2HCKDSXX_R1.fastq.gz")
+#SAMPLES, = glob_wildcards("{sample}_R1.fastq.gz")
+FLOWCELL = ["H2HCKDSXX", "H2H7HDSXX", "H2H7JDSXX"]
+totim = time.time()
+timeFormat = "%Y_%m_%d:%X" # year, month, day, time H:M:S
+log_file = "log_file.txt"
+#mem = "-Xmx12g" # login nodes
+#mem = "-Xmx24g" # slim nodes
+#mem = "-Xmx32g" # Fat nodes
+mem = "-Xmx50g"
+
+print(SAMPLES)
+
+# Explicit resource paths
+ref = "/work/sduvarcall/bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"
+bed = "/work/sduvarcall/NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed"
+interval = "/work/sduvarcall/NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval"
+dbsnp = "/work/sduvarcall/knownSNPs/dbsnp_150.b37.vcf.gz"
+mills_1000G = "/work/sduvarcall/knownSNPs/Mills_and_1000G_gold_standard.indels.b37.vcf"
+cosmic = "/work/sduvarcall/cosmic/Cosmic-combined_v81_b37.vcf"
+hapmap = "/work/sduvarcall/knownSNPs/hapmap_3.3.b37.vcf"
+omni = "/work/sduvarcall/knownSNPs/1000G_omni2.5.b37.vcf"
+phase1_1000G = "/work/sduvarcall/knownSNPs/1000G_phase1.indels.b37.vcf"
+
+'''
+Create log file, containing:
+	- Programs used and their version info
+	- Start and stop time of complete workflow
+	- sample(s)
+'''
+onstart:
+	shell("echo $(head /work/sduvarcall/exome_analysis/pipeline_version.txt -n 1) >> {log_file}")
+	shell("echo 'Started execution of pipeline:' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+
+onsuccess:
+	fiTime = 'Total time:', str((time.time()-totim) / 60), 'minutes'
+	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("echo {fiTime} >> {log_file}")
+	shell("cat {log_file} >> log_file_success.txt")
+
+onerror:
+	fiTime = 'Total time:', str((time.time()-totim) / 60), 'minutes'
+	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("echo {fiTime} >> {log_file}")
+	shell("echo 'ERROR OCCURED, PLEASE REFER TO SLURM LOGFILE FOR DETAILS' >> {log_file}")
+	shell("cp {log_file} log_file_error.txt")
+
+
+rule all:
+	input:
+		expand("{sample}_marked.bam", sample=SAMPLES),
+
+'''
+Map reads to reference genome with bwa
+'''
+rule MapAndSort:
+	input:
+		ref={ref},
+		faq=expand("{{sampleid}}_{{protocol}}_{{flowcell}}_{pair}.fastq.gz", pair=["R1","R2"])
+	output:
+		bam="{sampleid}_{protocol}_{flowcell}_aligned.bam",
+		bai="{sampleid}_{protocol}_{flowcell}_aligned.bam.bai"
+	params:
+		rgid = "{sampleid}_{protocol}_{flowcell}",
+		rglb = "{protocol}",
+		rgsm = "{sampleid}",
+		rgpl = "ILLUMINA",
+		rgpu = "{flowcell}_{sampleid}",
+		rgsc = "SDU"
+		#rg = "@RG\tID:{sample}\tLB:NimbleGen\tPL:Illumina\tSM:{sample}\tPU:{sample}"
+	log:
+		"{sampleid}_{protocol}_{flowcell}.bwa_mem.log"
+	benchmark:
+		"{sampleid}_{protocol}_{flowcell}.bwa.benchmark.txt"
+	threads: 24
+	shell:
+		"""
+		bwa mem -t {threads} -M -R \'@RG\\tID:{params.rgid}\\tLB:{params.rglb}\\tSM:{params.rgsm}\\tPL:{params.rgpl}\\tPU:{params.rgpu}\\tCN:{params.rgsc}\' {input.ref} {input.faq} | \
+		sambamba view -t {threads} -l 5 -S -f bam -o /dev/stdout /dev/stdin | \
+		sambamba sort -l 5 -t {threads} -m 50G -o {output.bam} /dev/stdin &> {log}
+		"""
+
+rule MergeBAM:
+	input:
+		bam=expand("{{sampleid}}_{{protocol}}_{flowcell}_aligned.bam", flowcell=FLOWCELL)
+		#bam="{sample}_aligned.bam"
+	output:
+		bam = "{sampleid}_{protocol}_merged.bam",
+		bai = "{sampleid}_{protocol}_merged.bam.bai"
+	threads: 24
+	log:
+		"{sampleid}_{protocol}.margebam.log"
+	benchmark:
+		"{sampleid}_{protocol}.margebam.benchmark.txt"
+	shell:
+		"""
+		sambamba merge -t {threads} -l 5 {output.bam} {input.bam} &> {log}
+		"""
+
+'''
+Remove duplicate reads
+'''
+rule MarkDuplicates:
+	input:
+		bam = "{sample}_merged.bam",
+		bai = "{sample}_merged.bam.bai"
+	output:
+		bam = "{sample}_marked.bam",
+		bai = "{sample}_marked.bam.bai"
+	threads: 24
+	log:
+		"{sample}.markdup.log"
+	benchmark:
+		"{sample}.markdup.benchmark.txt"
+	shell:
+		"""
+		sambamba markdup -l 5 -t {threads} {input.bam} {output.bam} &> {log}
+		"""
+
+

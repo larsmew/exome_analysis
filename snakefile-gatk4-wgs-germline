@@ -1,0 +1,530 @@
+__author__ = "Lars Andersen <larsmew@gmail.com>"
+__date__ = "15/04/2018"
+__version__ = "1.0"
+
+import time
+import os
+
+SAMPLES, = glob_wildcards("{sample}_R1.fastq.gz")
+FAMNAME = os.getcwd().rsplit("/",1)[1]
+totim = time.time()
+timeFormat = "%Y_%m_%d:%X" # year, month, day, time H:M:S
+log_file = "log_file.txt"
+#mem = "-Xmx12g" # login nodes
+#mem = "-Xmx24g" # slim nodes
+#mem = "-Xmx50g" # Fat nodes
+mem = "-Xmx50g" # Everything but login
+
+# Explicit resource paths
+ref = "/work/sduvarcall/bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"
+bed = "/work/sduvarcall/NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion_padding100bp.bed"
+interval = "/work/sduvarcall/NimbleGen_ExomeV3_U3/NimbleGen_ExomeV3_UTR_CustomTargetRegion.interval"
+dbsnp = "/work/sduvarcall/knownSNPs/dbsnp_150.b37.vcf.gz"
+mills_1000G = "/work/sduvarcall/knownSNPs/Mills_and_1000G_gold_standard.indels.b37.vcf"
+cosmic = "/work/sduvarcall/cosmic/Cosmic-combined_v81_b37.vcf"
+hapmap = "/work/sduvarcall/knownSNPs/hapmap_3.3.b37.vcf"
+omni = "/work/sduvarcall/knownSNPs/1000G_omni2.5.b37.vcf"
+phase1_1000G = "/work/sduvarcall/knownSNPs/1000G_phase1.indels.b37.vcf"
+
+'''
+Create log file, containing:
+	- Programs used and their version info
+	- Start and stop time of complete workflow
+	- sample(s)
+'''
+onstart:
+	shell("echo $(head /work/sduvarcall/exome_analysis/pipeline_version.txt -n 1) >> {log_file}")
+	shell("echo 'Started execution of pipeline:' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("mkdir -p Metrics")
+
+onsuccess:
+	fiTime = 'Total time:', str((time.time()-totim) / 60), 'minutes'
+	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("echo {fiTime} >> {log_file}")
+	shell("cat {log_file} >> log_file_success.txt")
+	#shell("mv {log_file} log_file_success.txt")
+
+onerror:
+	fiTime = 'Total time:', str((time.time()-totim) / 60), 'minutes'
+	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("echo {fiTime} >> {log_file}")
+	shell("echo 'ERROR OCCURED, PLEASE REFER TO SLURM LOGFILE FOR DETAILS' >> {log_file}")
+	shell("cp {log_file} log_file_error.txt")
+
+
+'''
+Rule all
+'''
+rule all:
+	input:
+		# BAM file
+		#expand("{sample}_recal.bam", sample=SAMPLES),
+		
+		# VCF files
+		expand("{fam_name}_variants_recal_gatk.vcf.gz", fam_name=FAMNAME),
+		expand("{fam_name}_variants_combined_freebayes.vcf", fam_name=FAMNAME),
+		
+		# Metrics and Statistics
+		expand("Metrics/{sample}.coverage_codingexons.sample_interval_summary", sample=SAMPLES),
+		expand("Metrics/{sample}.HS_Metrics.txt", sample=SAMPLES),
+		expand("Metrics/{sample}_unsorted.quality_distribution_metrics", sample=SAMPLES),
+		expand("Metrics/{sample}.alignment_summary_metrics", sample=SAMPLES),
+		expand("Metrics/{sample}_aggregation.alignment_summary_metrics", sample=SAMPLES)
+
+
+rule FastqToUbam:
+	input:
+		f1 = "{sampleid}_{protocol}_{flowcell}_R1.fastq.gz",
+		f2 = "{sampleid}_{protocol}_{flowcell}_R2.fastq.gz"
+	output:
+		bam = temp("{sampleid}_{protocol}_{flowcell}_fastqtosam_unsorted.bam")
+	params:
+		rgid = "{sampleid}_{protocol}_{flowcell}",
+		rglb = "{protocol}",
+		rgsm = "{sampleid}",
+		rgpl = "ILLUMINA",
+		rgpu = "{flowcell}_{sampleid}",
+		rgsc = "SDU"
+	shell:
+		"""
+		gatk FastqToSam --java-options {mem} \
+		--FASTQ={input.f1} \
+		--FASTQ2={input.f2} \
+		--OUTPUT={output} \
+		--READ_GROUP_NAME={params.rgid} \
+		--SAMPLE_NAME={params.rgsm} \
+		--LIBRARY_NAME={params.rglb} \
+		--PLATFORM_UNIT={params.rgpu} \
+		--PLATFORM={params.rgpl} \
+		--SEQUENCING_CENTER={params.rgsc}
+		"""
+
+rule MarkIlluminaAdapters:
+	input:
+		bam="{sample}_fastqtosam_unsorted.bam"
+	output:
+		bam=temp("{sample}_markilluminaadapters.bam"),
+		met="{sample}_markilluminaadapters_metrics.txt"
+	shell:
+		"""
+		gatk MarkIlluminaAdapters --java-options {mem} \
+		--INPUT={input} \
+		--OUTPUT={output.bam} \
+		--METRICS={output.met}
+		"""
+
+'''
+Map reads to reference genome with bwa
+'''
+rule MapAndSort:
+	input:
+		ref={ref},
+		bam="{sample}_markilluminaadapters.bam",
+		ubam="{sample}_fastqtosam_unsorted.bam"
+	output:
+		bam=temp("{sample}_aligned_sorted.bam"),
+		bai=temp("{sample}_aligned_sorted.bai")
+	params:
+		rg = "@RG\tID:{sample}\tLB:NimbleGen\tPL:Illumina\tSM:{sample}\tPU:{sample}"
+		#rg = "@RG\tID:{sample}\tLB:Illumina\tPL:Illumina\tSM:{sample}\tPU:{sample}"
+	benchmark:
+		"{sample}.bwa.benchmark.txt"
+	threads: 24
+	shell:
+		"""
+		gatk --java-options {mem} SamToFastq \
+		--INPUT={input.bam} --FASTQ=/dev/stdout \
+		--CLIPPING_ATTRIBUTE=XT --CLIPPING_ACTION=2 --INTERLEAVE=true --NON_PF=true | \
+
+		bwa mem -M -t {threads} -p {ref} /dev/stdin | \
+
+   		gatk --java-options {mem} MergeBamAlignment \
+   		--ALIGNED_BAM=/dev/stdin \
+   		--UNMAPPED_BAM={input.ubam} \
+   		--OUTPUT={output.bam} \
+		--CREATE_INDEX=true \
+   		--REFERENCE_SEQUENCE={ref} \
+		--ADD_MATE_CIGAR=true \
+		--SORT_ORDER=coordinate \
+   		--CLIP_ADAPTERS=false --CLIP_OVERLAPPING_READS=true \
+   		--INCLUDE_SECONDARY_ALIGNMENTS=true --MAX_INSERTIONS_OR_DELETIONS=-1 \
+   		--PRIMARY_ALIGNMENT_STRATEGY=MostDistant --ATTRIBUTES_TO_RETAIN=XS \
+		"""
+		#sambamba view -t {threads} -l 0 -S -f bam -o /dev/stdout /dev/stdin | \
+		#sambamba sort -l 0 -t {threads} -m 50G -o {output.bam} /dev/stdin &> {log}
+		
+
+		# Write to logfile
+		" && echo 'Aligning with bwa mem and output sorted bam file with samtools' >> {log_file}"
+		" && echo 'bwa mem version: 0.7.17-r1188' >> {log_file}"
+		#" && echo 'sambamba version: 0.6.6' >> {log_file}"
+		" && echo 'Reference genome:' {ref} >> {log_file}"
+
+
+'''
+Remove duplicate reads
+'''
+rule MarkDuplicates:
+	input:
+		bam = "{sample}_aligned_sorted.bam",
+		bai = "{sample}_aligned_sorted.bai"
+	output:
+		bam = temp("{sample}_aligned_sorted_reDup.bam"),
+		bai = temp("{sample}_aligned_sorted_reDup.bai"),
+		met = "Metrics/{sample}_duplicate_metrics.txt"
+	shell:
+		"""
+		gatk --java-options {mem} MarkDuplicates \
+		--INPUT={input.bam} \
+		--OUTPUT={output.bam} \
+		--METRICS_FILE={output.met} \
+		--OPTICAL_DUPLICATE_PIXEL_DISTANCE=2500 \
+		--CLEAR_DT=false \
+		--ADD_PG_TAG_TO_READS=false \
+		--CREATE_INDEX=true \
+		"""
+		#--VALIDATION_STRINGENCY=SILENT \
+		#--ASSUME_SORT_ORDER="queryname" \
+		#--REMOVE_DUPLICATES=true \
+
+		# Write to logfile
+		" && echo 'Removing PCR Duplicates' >> {log_file}"
+		#" && echo 'Picard MarkDuplicates version:' $(picard MarkDuplicates --version) >> {log_file}"
+
+
+'''
+Obtain recalibration information
+'''
+rule BaseRecalibrator:
+	input:
+		bam = "{sample}_aligned_sorted_reDup.bam",
+		bai = "{sample}_aligned_sorted_reDup.bai",
+		mills_1000G = {mills_1000G},
+		dbsnp = {dbsnp}
+	output:
+		"{sample}_recal_data.grp"
+	shell:
+		"""
+		gatk --java-options {mem} BaseRecalibrator \
+		-R={ref} \
+		-I={input.bam} \
+		--known-sites={input.dbsnp} \
+		--known-sites={input.mills_1000G} \
+		-O={output} \
+		"""
+
+		# Write to logfile
+		" && echo 'Obtained covariation patterns for recalibration' >> {log_file}"
+		" && echo 'dbsnp version: dbsnp_138.b37.vcf' >> {log_file}"
+		" && echo '1000G version: Mills_and_1000G_gold_standard.indels.b37.vcf' >> {log_file}"
+
+
+'''
+Apply Recalibration
+'''
+rule ApplyRecalibration:
+	input:
+		bam="{sample}_aligned_sorted_reDup.bam",
+		bai="{sample}_aligned_sorted_reDup.bai",
+		table="{sample}_recal_data.grp"
+	output:
+		"{sample}_recal.bam"
+	shell:
+		"""
+		gatk --java-options {mem} ApplyBQSR \
+		-R={ref} \
+		-I={input.bam} \
+		--bqsr-recal-file={input.table} \
+		--add-output-sam-program-record \
+		-O={output} \
+		"""
+
+		# Write to logfile
+		"&& echo 'Recalibrate base quality score' >> {log_file}"
+		#"&& echo 'GATK version:' $(GenomeAnalysisTK --version) >> {log_file}"
+
+
+'''
+Depth of coverage calculation
+'''
+rule DepthOfCoverage:
+	input:
+		bam="{sample}_recal.bam"
+	output:
+		"Metrics/{sample}.coverage_codingexons.sample_interval_summary"
+		# And many more, not written here for simplicity
+	params:
+		"Metrics/{sample}.coverage_codingexons"
+	shell:
+		"GenomeAnalysisTK {mem} \ "
+		"-T DepthOfCoverage \ "
+		"-L {bed} \ "
+		"-o {params} \ "
+		"-I {input} \ "
+		"-R {ref} \ "
+		#"-geneList //data/martin/analysis/refGene_sorted_1-22xy_REDUCED.b37.txt \ "
+		"--omitDepthOutputAtEachBase \ "
+		"--summaryCoverageThreshold 30 \ "
+		"--minBaseQuality 30"
+
+		# Write to logfile
+		"&& echo 'Calculate depth of coverage' >> {log_file}"
+
+'''
+Collect Hybrid Selection metrics
+'''
+rule collectHsMetrics:
+	input:
+		bam="{sample}_recal.bam"
+		#interval={interval}
+	output:
+		"Metrics/{sample}.HS_Metrics.txt"
+	shell:
+		"""
+		gatk --java-options {mem} CollectHsMetrics \
+		--INPUT={input.bam} \
+		--REFERENCE_SEQUENCE={ref} \
+		--OUTPUT={output} \
+		--BAIT_INTERVALS={interval} \
+		--TARGET_INTERVALS={interval} \
+		"""
+
+		# Write to logfile
+		"&& echo 'Collect Hybrid Selection metrics' >> {log_file}"
+
+
+rule CollectUnsortedReadgroupBamQualityMetrics:
+	input:
+		bam="{sample}_recal.bam"
+	output:
+		#"Metrics/{sample}_unsortedRGBamQualityMetrics"
+		"Metrics/{sample}_unsorted.quality_distribution_metrics"
+		# And many more, not written here for simplicity
+	params:
+		out="Metrics/{sample}_unsorted"
+	shell:
+		"""
+		gatk --java-options {mem} CollectMultipleMetrics \
+		--INPUT={input.bam} \
+		--OUTPUT={params} \
+		--ASSUME_SORTED=true \
+		--PROGRAM="null" \
+		--PROGRAM="CollectBaseDistributionByCycle" \
+		--PROGRAM="CollectInsertSizeMetrics" \
+		--PROGRAM="MeanQualityByCycle" \
+		--PROGRAM="QualityScoreDistribution" \
+		--METRIC_ACCUMULATION_LEVEL="null" \
+		--METRIC_ACCUMULATION_LEVEL="ALL_READS" \
+		"""
+		# touch {output}
+		#--REFERENCE_SEQUENCE={ref} \
+
+
+rule CollectReadgroupBamQualityMetrics:
+	input:
+		bam="{sample}_recal.bam"
+	output:
+		#"Metrics/{sample}_RGBamQualityMetrics"
+		"Metrics/{sample}.alignment_summary_metrics"
+		# And many more, not written here for simplicity
+	params:
+		out="Metrics/{sample}"
+	shell:
+		"""
+		gatk --java-options {mem} CollectMultipleMetrics \
+		--INPUT={input.bam} \
+		--REFERENCE_SEQUENCE={ref} \
+		--OUTPUT={params} \
+		--ASSUME_SORTED=true \
+		--PROGRAM="null" \
+		--PROGRAM="CollectAlignmentSummaryMetrics" \
+		--PROGRAM="CollectGcBiasMetrics" \
+		--METRIC_ACCUMULATION_LEVEL="null" \
+		--METRIC_ACCUMULATION_LEVEL="READ_GROUP" \
+		"""
+		# touch {output} 
+	
+rule CollectAggregationMetrics:
+	input:
+		bam="{sample}_recal.bam"
+	output:
+		#"Metrics/{sample}_aggregationMetrics"
+		"Metrics/{sample}_aggregation.alignment_summary_metrics"
+		# And many more, not written here for simplicity
+	params:
+		out="Metrics/{sample}_aggregation"
+	shell:
+		"""
+		gatk --java-options {mem} CollectMultipleMetrics \
+		--INPUT={input.bam} \
+		--REFERENCE_SEQUENCE={ref} \
+		--OUTPUT={params} \
+		--ASSUME_SORTED=true \
+		--PROGRAM="null" \
+		--PROGRAM="CollectAlignmentSummaryMetrics" \
+		--PROGRAM="CollectInsertSizeMetrics" \
+		--PROGRAM="CollectGcBiasMetrics" \
+		--PROGRAM="CollectSequencingArtifactMetrics" \
+		--PROGRAM="QualityScoreDistribution" \
+		--METRIC_ACCUMULATION_LEVEL="null" \
+		--METRIC_ACCUMULATION_LEVEL="SAMPLE" \
+		--METRIC_ACCUMULATION_LEVEL="LIBRARY"
+		"""
+		#touch {output}
+
+
+###### Call germline variants using g.vcf files before deriving the final vcf file ######
+
+'''
+HaplotypeCaller
+'''
+rule HaplotypeCaller:
+	input:
+		bam="{sample}_recal.bam",
+		dbsnp={dbsnp}
+	output:
+		gvcf="gvcf_files/{sample}_raw_variants.g.vcf.gz",
+		#gvcf_index="gvcf_files/{sample}_raw_variants.g.vcf.gz.tbi"
+	threads: 1 # Increasing value will disable profiling and results will vary slightly between runs
+	shell:
+		"""
+		mkdir -p gvcf_files;
+		gatk --java-options {mem} HaplotypeCaller \
+		-R={ref} \
+		-I={input.bam} \
+		-O={output.gvcf} \
+		-ERC=GVCF \
+		--dbsnp={input.dbsnp} \
+		-A Coverage \
+		-A DepthPerSampleHC \
+		-A DepthPerAlleleBySample \
+		-A BaseQualityRankSumTest \
+		-A QualByDepth \
+		"""
+		# | bgzip -c > {output.gvcf} \
+		# && tabix -p vcf {output.gvcf} \
+
+		# Write to logfile
+		"&& echo 'HaplotypeCaller' >> {log_file}"
+
+
+rule CombineGVCFs:
+	input:
+		gvcfs=temp(expand("gvcf_files/{sample}_raw_variants.g.vcf.gz", sample=SAMPLES))
+	output:
+		gvcf="gvcf_files/{fam_name}_raw_variants_combined.g.vcf.gz"
+	params:
+		gvcfs=expand("-V=gvcf_files/{sample}_raw_variants.g.vcf.gz", sample=SAMPLES),
+	shell:
+		"""
+		gatk --java-options {mem} CombineGVCFs \
+		-R {ref} \
+		{params.gvcfs} \
+		-O {output.gvcf}
+		"""
+
+'''
+GenotypeGVCFs
+'''
+rule GenotypeGVCFs:
+	input:
+		gvcf="gvcf_files/{fam_name}_raw_variants_combined.g.vcf.gz",
+		dbsnp={dbsnp}
+	output:
+		vcf="{fam_name}_variants.vcf.gz"
+	shell:
+		"""
+		gatk --java-options {mem} GenotypeGVCFs \
+		-R={ref} \
+		-V={input.gvcf} \
+		--dbsnp={input.dbsnp} \
+		-O={output} \
+		"""
+		#| bgzip -c > {output} \
+		#&& tabix -p vcf {output} \
+
+		# Write to logfile
+		"&& echo 'Finished GenotypeGVCFs' >> {log_file}"
+
+
+'''
+Recalibrate Variant Quality Score
+'''
+rule VariantRecalibrator:
+	input:
+		vcf="{fam_name}_variants.vcf.gz"
+	output:
+		recal="{fam_name}_variants.recal",
+		tranches="{fam_name}_variants.tranches",
+		rscript="{fam_name}_variants.plots.R"
+	shell:
+		"""
+		gatk --java-options {mem} VariantRecalibrator \
+		-R {ref} \
+		-V {input} \
+		-O {output.recal} \
+		--resource hapmap,known=false,training=true,truth=true,prior=15.0:{hapmap} \
+		--resource omni,known=false,training=true,truth=false,prior=12.0:{omni} \
+		--resource 1000G,known=false,training=true,truth=false,prior=10.0:{phase1_1000G} \
+		--resource dbsnp,known=true,training=false,truth=false,prior=2.0:{dbsnp} \
+		-an QD -an MQ -an MQRankSum -an ReadPosRankSum -an FS -an SOR \
+		-mode BOTH \
+		--tranches-file {output.tranches} \
+		--rscript-file {output.rscript}
+		"""
+
+
+'''
+Apply Variant Recalibration
+'''
+rule ApplyVQSR:
+	input:
+		vcf="{fam_name}_variants.vcf.gz",
+		recal="{fam_name}_variants.recal",
+		tranches="{fam_name}_variants.tranches"
+	output:
+		vcf="{fam_name}_variants_recal_gatk.vcf.gz"
+	shell:
+		"""
+		gatk --java-options {mem} ApplyVQSR \
+		-R {ref} \
+		-V {input.vcf} \
+		-O {output} \
+		--tranches-file {input.tranches} \
+		--recal-file {input.recal} \
+		--mode BOTH
+		"""
+
+rule FreeBayes:
+	input:
+		bam="{sample}_recal.bam"
+	output:
+		vcf="{sample}_variants_freebayes.vcf"
+	shell:
+		"""
+		freebayes -f {ref} {input} > {output}
+		"""
+
+rule CombineFreeBayesVCF:
+	input:
+		vcfs=expand("{sample}_variants_freebayes.vcf", sample=SAMPLES)
+	output:
+		vcf="{fam_name}_variants_combined_freebayes.vcf"
+	params:
+		vcfs=expand("-V {sample}_variants_freebayes.vcf", sample=SAMPLES)
+	shell:
+		"""
+		GenomeAnalysisTK {mem} \
+		-T CombineVariants \
+		-R {ref} \
+		{params.vcfs} \
+		-o {output} \
+		-genotypeMergeOptions UNIQUIFY
+		"""
+
+# rule collectVariantCallingMetrics:
+# 	input:
+# 		vcf="{fam_name}_variants.vcf.gz"
+# 		dbsnp={dbsnp}
+# 	output:
+#

@@ -1,0 +1,143 @@
+__title__ = "Pipeline for Somatic Variant Calling with Mutect2"
+__author__ = "Lars Andersen <larsmew@gmail.com>"
+__date__ = "20/04/2018"
+__version__ = "1.0"
+
+import time
+import os
+
+sample_num = "10"
+#normal_sample = "G37-B"+sample_num
+#tumor_sample = "G37-T"+sample_num
+
+normal_sample = "G37-B"+sample_num+"_illumina-truseq-genome_merged"
+tumor_sample = "G37-T"+sample_num+"_illumina-truseq-genome_merged"
+
+
+#########################################################
+####                       Input                     ####
+#########################################################
+# Somatic samples information (matched and tumor-only)
+#configfile: "../somatic_matched_samples.yaml"
+
+# Explicit paths for external input files
+ref = "/work/sduvarcall/bwa-0.7.13/reference/human_g1k_v37_decoy.fasta"
+gnomead = "/work/sduvarcall/knownSNPs/gnomead/af-only-gnomad.raw.sites.b37.vcf.gz"
+
+#bam_folder = "/work/sduvarcall/G37-2016-BRCAX-Genomes/bam_out"
+bam_folder = "/work/sduvarcall/G37-2016-BRCAX-Genomes/bam_merged"
+
+# NORMALS, = glob_wildcards(bam_folder+"/{normal_sample}.bam")
+# NORMALS = list(set([i.replace("T","B").split("/")[1] for i in NORMALS]))
+# TUMORS, = glob_wildcards(bam_folder+"/{tumour_sample}.bam")
+# TUMORS = list(set([i.replace("B","T").split("/")[1] for i in TUMORS]))
+# print(NORMALS)
+# print(TUMORS)
+
+#########################################################
+####                      Output                     ####
+#########################################################
+log_file = "log_file_somatic.txt"
+#output = "/work/sduvarcall/G37-2016-BRCAX-Genomes/contamination"
+output = "/work/sduvarcall/G37-2016-BRCAX-Genomes/contamination/gatk4"
+
+
+
+#########################################################
+####                       Setup                     ####
+#########################################################
+# Timing
+totim = time.time()
+timeFormat = "%Y_%m_%d:%X" # year, month, day, time H:M:S
+
+# Memory
+mem = "-Xmx12g" # login nodes - be careful not running too many jobs at once!
+#mem = "-Xmx24g" # slim nodes
+#mem = "-Xmx32g" # Fat nodes
+
+
+#########################################################
+####  Define workflow start, stop and error actions  ####
+#########################################################
+onstart:
+	shell("echo $(head /work/sduvarcall/exome_analysis/pipeline_version.txt -n 1) >> {log_file}")
+	shell("echo 'Started execution of pipeline:' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("mkdir -p "+output)
+
+onsuccess:
+	fiTime = 'Total time:', str((time.time()-totim) / 60), 'minutes'
+	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("echo Execution time: {fiTime} >> {log_file}")
+	shell("cat {log_file} >> log_file_somatic_success.txt")
+
+onerror:
+	fiTime = 'Total time:', str((time.time()-totim) / 60), 'minutes'
+	shell("echo 'Finished execution on' $(date +'%Y-%m-%d %H:%M:%S') >> {log_file}")
+	shell("echo Execution time: {fiTime} >> {log_file}")
+	shell("echo 'ERROR OCCURED, PLEASE REFER TO SLURM LOGFILE FOR DETAILS' >> {log_file}")
+	shell("cp {log_file} log_file_somatic_error.txt")
+
+
+#########################################################
+####                  Run All Rules                  ####
+#########################################################
+'''
+Rule all
+'''	
+rule all_pairs:
+	input:
+		expand(output+"/{normal}_vs_{tumor}_contamination.table", normal=normal_sample, tumor=tumor_sample),
+		#expand(output+"/{normal}_vs_{tumor}_contamination.table", normal=NORMALS, tumor=TUMORS),
+
+
+#########################################################
+####           Create Contamination table            ####
+#########################################################
+rule GetPileupSummaries_normal:
+	input:
+		#bam=bam_folder+"/{normal}/{normal}.bam",
+		bam=bam_folder+"/{normal}_recal.bam",
+		#var_for_contaminatoin={gnomead}
+	output:
+		pileup=output+"/{normal}_normal_pileup.table"
+	shell:
+		"""
+		gatk --java-options {mem} GetPileupSummaries \
+		-I {input.bam} \
+		-V {gnomead} \
+		-O {output}
+		"""
+		# -V {input.var_for_contamination} \
+
+rule GetPileupSummaries_tumor:
+	input:
+		#bam=bam_folder+"/{tumor}/{tumor}.bam",
+		bam=bam_folder+"/{tumor}_recal.bam",
+		#var_for_contaminatoin={gnomead}
+	output:
+		pileup=output+"/{tumor}_tumor_pileup.table"
+	shell:
+		"""
+		gatk --java-options {mem} GetPileupSummaries \
+		-I {input.bam} \
+		-V {gnomead} \
+		-O {output}
+		"""
+		# -V {input.var_for_contamination} \
+
+
+rule CalculateContamination:
+	input:
+		normal=output+"/{normal}_normal_pileup.table",
+		tumor=output+"/{tumor}_tumor_pileup.table"
+	output:
+		contamination=output+"/{normal}_vs_{tumor}_contamination.table"
+	shell:
+		"""
+		gatk --java-options {mem} CalculateContamination \
+		-I {input.tumor} \
+		-matched {input.normal} \
+		-O {output}
+		"""
+
+

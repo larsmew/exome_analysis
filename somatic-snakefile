@@ -75,8 +75,7 @@ print(PAIRS)
 rule all:
 	input:
 		[expand(output_somatic+"/{normal}_vs_{tumor}_somatic_variants.vcf",
-			normal=PAIRS[pair]["normal"],
-			tumor=PAIRS[pair]["tumor"]) for pair in PAIRS]
+			normal=PAIRS[pair]["normal"], tumor=PAIRS[pair]["tumor"]) for pair in PAIRS]
 		
 #########################################################
 ####       Call Somatic Variants using Mutect2       ####

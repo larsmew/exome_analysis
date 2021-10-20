@@ -1,8 +1,8 @@
 # Conda for Bioinformatic Pipelines
 
 ## Table of contents
-- [Install Conda package manager](##Install Conda package manager)
-- [Install Conda package manager]()
+- [Install Conda package manager](##Install-Conda-package-manager)
+- [Restore](###Restore)
 - [Install Conda package manager](Install Conda package manager)
 
 This document describes some simple commands to get the conda package up and running on 64-bit Linux machines (and likely MacOS machines).

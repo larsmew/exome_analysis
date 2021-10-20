@@ -136,3 +136,6 @@ source deactivate
 conda create --name old_env --file conda_packages.txt
 source activate old_env
 ```
+
+## Restore
+hej med dig 

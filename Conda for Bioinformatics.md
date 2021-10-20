@@ -3,9 +3,9 @@
 ## Table of contents
 
 <!--ts-->
-- [Install Conda package manager](##install-conda-package-manager)
-- [Restore](###restore)
-- [Restore](###Restore)
+- [Install Conda package manager](#install-conda-package-manager)
+- [Restore](#restore)
+- [Restore](#Restore)
 - [Install Conda package manager](Install Conda package manager)
 <!--te-->
 
